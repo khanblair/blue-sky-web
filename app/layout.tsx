@@ -5,6 +5,7 @@ import { ClientProviders } from "./client-providers";
 import { Navbar } from "@/components/Navbar";
 import { FloatingPostButton } from "@/components/FloatingPostButton";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import { InstallPWAPopup } from "@/components/ServiceWorkerRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -76,6 +77,7 @@ export default function RootLayout({
               <span className="opacity-70">Powered by Convex, OpenRouter, and HeroUI</span>
             </footer>
             <FloatingPostButton />
+            <InstallPWAPopup />
           </div>
         </ClientProviders>
       </body>
