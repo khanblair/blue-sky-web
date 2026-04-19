@@ -113,37 +113,37 @@ export default function DashboardPage() {
         : null;
 
     return (
-        <div className="flex flex-col gap-8 pb-12">
-            <header className="flex justify-between items-end">
+        <div className="flex flex-col gap-6 pb-12">
+            <header className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
                 <div>
-                    <h1 className="text-4xl font-black tracking-tight mb-2 uppercase text-white">Dashboard</h1>
-                    <p className="text-default-500">Manage your automated BlueSky presence</p>
+                    <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-1 uppercase text-white">Dashboard</h1>
+                    <p className="text-default-500 text-sm">Manage your automated BlueSky presence</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2 shrink-0">
                     <Button
                         variant="outline"
-                        className="font-bold border-divider bg-surface"
+                        className="font-bold border-divider bg-surface flex-1 sm:flex-none"
                         onPress={handleToggleActive}
                     >
                         {user?.isActive ? (
-                            <><Play size={18} className="mr-2 text-warning fill-warning" /> Pause</>
+                            <><Play size={16} className="mr-1.5 text-warning fill-warning" /> Pause</>
                         ) : (
-                            <><Play size={18} className="mr-2 text-success fill-success" /> Resume</>
+                            <><Play size={16} className="mr-1.5 text-success fill-success" /> Resume</>
                         )}
                     </Button>
                     <Button
                         variant="primary"
-                        className="font-bold shadow-lg shadow-primary/20"
+                        className="font-bold shadow-lg shadow-primary/20 flex-1 sm:flex-none"
                         onPress={handlePostNow}
                         isDisabled={isPosting}
                     >
-                        {isPosting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="mr-2" />}
+                        {isPosting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="mr-1.5" />}
                         Post Now
                     </Button>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Connection Status */}
                 <CardRoot className="bg-surface border border-divider/50">
                     <CardContent className="flex flex-row items-center gap-4 p-6 overflow-hidden">
@@ -206,17 +206,17 @@ export default function DashboardPage() {
             </div>
 
             <TabsRoot aria-label="Dashboard Tabs" className="w-full">
-                <TabList className="gap-6 w-full relative rounded-none p-0 border-b border-divider mb-6">
-                    <Tab id="preferences" className="font-bold text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent uppercase tracking-tight">
+                <TabList className="gap-4 sm:gap-6 w-full relative rounded-none p-0 border-b border-divider mb-6">
+                    <Tab id="preferences" className="font-bold text-base sm:text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent uppercase tracking-tight">
                         Strategy
                     </Tab>
-                    <Tab id="history" className="font-bold text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent uppercase tracking-tight">
+                    <Tab id="history" className="font-bold text-base sm:text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent uppercase tracking-tight">
                         History
                     </Tab>
                 </TabList>
 
                 <TabPanel id="preferences">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <CardRoot className="p-4 bg-surface border-divider border shadow-sm">
                             <CardHeader className="flex gap-3 pb-4">
                                 <Cloud className="text-primary" />
@@ -286,64 +286,102 @@ export default function DashboardPage() {
 
                 <TabPanel id="history">
                     <CardRoot className="bg-surface border-divider border shadow-sm">
-                        <CardContent className="p-0 overflow-x-auto">
-                            <table className="w-full min-w-full border-collapse">
-                                <thead>
-                                    <tr className="border-b border-divider bg-default-50/50">
-                                        {["CONTENT", "TIMESTAMP", "STATUS", "ACTION"].map((col) => (
-                                            <th key={col} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-default-400 ${col === "ACTION" ? "text-right pr-8" : "text-left"}`}>
-                                                {col}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(history || []).length === 0 ? (
-                                        <tr>
-                                            <td colSpan={4} className="px-6 py-12 text-center text-default-500 font-bold text-sm">
-                                                No post history yet
-                                            </td>
+                        <CardContent className="p-0">
+                            {/* Mobile card list */}
+                            <div className="sm:hidden divide-y divide-divider/40">
+                                {(history || []).length === 0 ? (
+                                    <p className="px-6 py-12 text-center text-default-500 font-bold text-sm">No post history yet</p>
+                                ) : (
+                                    (history || []).map((post: any) => (
+                                        <div key={post._id} className="p-4 flex flex-col gap-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <Chip
+                                                    variant="soft"
+                                                    color={post.status === "success" ? "success" : "danger"}
+                                                    size="sm"
+                                                    className="font-black text-[9px] uppercase tracking-widest h-5 px-2 shrink-0"
+                                                >
+                                                    {post.status}
+                                                </Chip>
+                                                <span className="text-[10px] font-bold text-default-500 uppercase">
+                                                    {formatDistanceToNow(post.timestamp, { addSuffix: true })}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-bold text-white/90 line-clamp-2">{post.content || post.error || "No content"}</p>
+                                            {post.blueskyUri && (
+                                                <a
+                                                    href={`https://bsky.app/profile/${user?.handle}/post/${post.blueskyUri.split('/').pop()}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[10px] font-black uppercase tracking-widest text-primary"
+                                                >
+                                                    View Post →
+                                                </a>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {/* Desktop table */}
+                            <div className="hidden sm:block overflow-x-auto">
+                                <table className="w-full min-w-full border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-divider bg-default-50/50">
+                                            {["CONTENT", "TIMESTAMP", "STATUS", "ACTION"].map((col) => (
+                                                <th key={col} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-default-400 ${col === "ACTION" ? "text-right pr-8" : "text-left"}`}>
+                                                    {col}
+                                                </th>
+                                            ))}
                                         </tr>
-                                    ) : (
-                                        (history || []).map((post: any) => (
-                                            <tr key={post._id} className="border-b border-divider/40 last:border-0 hover:bg-default-50 transition-colors">
-                                                <td className="px-6 py-5">
-                                                    <p className="line-clamp-1 text-sm font-bold tracking-tight text-white/90">{post.content || post.error || "No content"}</p>
-                                                </td>
-                                                <td className="px-6 py-5">
-                                                    <span className="text-[11px] font-bold text-default-500 uppercase">
-                                                        {formatDistanceToNow(post.timestamp, { addSuffix: true })}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-5">
-                                                    <Chip
-                                                        variant="soft"
-                                                        color={post.status === "success" ? "success" : "danger"}
-                                                        size="sm"
-                                                        className="font-black text-[9px] uppercase tracking-widest h-6 px-3"
-                                                    >
-                                                        {post.status}
-                                                    </Chip>
-                                                </td>
-                                                <td className="px-6 py-5 text-right pr-8">
-                                                    {post.blueskyUri ? (
-                                                        <a
-                                                            href={`https://bsky.app/profile/${user?.handle}/post/${post.blueskyUri.split('/').pop()}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
-                                                        >
-                                                            View Post
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">N/A</span>
-                                                    )}
+                                    </thead>
+                                    <tbody>
+                                        {(history || []).length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-12 text-center text-default-500 font-bold text-sm">
+                                                    No post history yet
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                                        ) : (
+                                            (history || []).map((post: any) => (
+                                                <tr key={post._id} className="border-b border-divider/40 last:border-0 hover:bg-default-50 transition-colors">
+                                                    <td className="px-6 py-5">
+                                                        <p className="line-clamp-1 text-sm font-bold tracking-tight text-white/90">{post.content || post.error || "No content"}</p>
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <span className="text-[11px] font-bold text-default-500 uppercase">
+                                                            {formatDistanceToNow(post.timestamp, { addSuffix: true })}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <Chip
+                                                            variant="soft"
+                                                            color={post.status === "success" ? "success" : "danger"}
+                                                            size="sm"
+                                                            className="font-black text-[9px] uppercase tracking-widest h-6 px-3"
+                                                        >
+                                                            {post.status}
+                                                        </Chip>
+                                                    </td>
+                                                    <td className="px-6 py-5 text-right pr-8">
+                                                        {post.blueskyUri ? (
+                                                            <a
+                                                                href={`https://bsky.app/profile/${user?.handle}/post/${post.blueskyUri.split('/').pop()}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                                                            >
+                                                                View Post
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">N/A</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </CardContent>
                     </CardRoot>
                 </TabPanel>

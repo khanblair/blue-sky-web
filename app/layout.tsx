@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { FloatingPostButton } from "@/components/FloatingPostButton";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { InstallPWAPopup } from "@/components/ServiceWorkerRegistration";
+import { MobileNav } from "@/components/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -79,6 +80,9 @@ export default function RootLayout({
             <FloatingPostButton />
             <InstallPWAPopup />
           </div>
+          {/* MobileNav must be outside the relative div — fixed positioning
+              breaks when inside a transformed/relative containing block */}
+          <MobileNav />
         </ClientProviders>
       </body>
     </html>

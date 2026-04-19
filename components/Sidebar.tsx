@@ -14,13 +14,14 @@ import {
 
 const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Schedule", href: "/schedule", icon: Calendar },
-    { name: "Posts", href: "/posts", icon: FileText },
-    { name: "AI Settings", href: "/ai", icon: Sparkles },
-    { name: "Profile", href: "/profile", icon: User },
-    { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Schedule",  href: "/schedule",  icon: Calendar },
+    { name: "Posts",     href: "/posts",     icon: FileText },
+    { name: "AI",        href: "/ai",        icon: Sparkles },
+    { name: "Profile",   href: "/profile",   icon: User },
+    { name: "Settings",  href: "/settings",  icon: Settings },
 ];
 
+// ─── Desktop sidebar ────────────────────────────────────────────────────────
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname();
 
@@ -47,7 +48,7 @@ export function Sidebar({ className }: { className?: string }) {
                                 <item.icon
                                     size={20}
                                     className={cn(
-                                        "transition-colors",
+                                        "transition-colors shrink-0",
                                         isActive ? "text-white" : "text-zinc-500 group-hover:text-white"
                                     )}
                                 />
@@ -65,5 +66,47 @@ export function Sidebar({ className }: { className?: string }) {
                 </div>
             </div>
         </aside>
+    );
+}
+
+// ─── Mobile bottom tab bar ───────────────────────────────────────────────────
+export function MobileNav() {
+    const pathname = usePathname();
+
+    return (
+        <nav className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-zinc-950/95 backdrop-blur-md border-t border-white/10 flex items-center justify-around px-1 py-1">
+            {navigation.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                    <Link
+                        key={item.name}
+                        href={item.href}
+                        className={cn(
+                            "flex flex-col items-center gap-1 py-2 px-2 rounded-xl transition-all flex-1",
+                            isActive ? "text-blue-500" : "text-zinc-500 hover:text-zinc-300"
+                        )}
+                    >
+                        <div className={cn(
+                            "w-10 h-8 flex items-center justify-center rounded-xl transition-all",
+                            isActive ? "bg-blue-500/15" : ""
+                        )}>
+                            <item.icon
+                                size={20}
+                                className={cn(
+                                    "shrink-0 transition-colors",
+                                    isActive ? "text-blue-500" : "text-zinc-500"
+                                )}
+                            />
+                        </div>
+                        <span className={cn(
+                            "text-[9px] font-black uppercase tracking-widest truncate w-full text-center leading-none",
+                            isActive ? "text-blue-500" : "text-zinc-600"
+                        )}>
+                            {item.name}
+                        </span>
+                    </Link>
+                );
+            })}
+        </nav>
     );
 }
