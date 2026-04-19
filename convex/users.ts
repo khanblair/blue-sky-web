@@ -131,10 +131,38 @@ export const updateProfile = mutation({
     },
 });
 
-export const syncUser = internalMutation({
-    args: {
-        clerkId: v.string(),
+export const syncUser = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const existingUser = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+
+        if (!existingUser) {
+            const userId = await ctx.db.insert("users", {
+                clerkId: identity.subject,
+                isActive: false,
+            });
+
+            await ctx.db.insert("preferences", {
+                userId,
+                topics: [],
+                tone: "professional",
+                frequency: 24,
+            });
+
+            return userId;
+        }
+        return existingUser._id;
     },
+});
+
+export const syncUserInternal = internalMutation({
+    args: { clerkId: v.string() },
     handler: async (ctx, args) => {
         const existingUser = await ctx.db
             .query("users")
@@ -144,15 +172,14 @@ export const syncUser = internalMutation({
         if (!existingUser) {
             const userId = await ctx.db.insert("users", {
                 clerkId: args.clerkId,
-                isActive: false, // Inactive until onboarding is complete
+                isActive: false,
             });
 
-            // Initialize default preferences
             await ctx.db.insert("preferences", {
                 userId,
                 topics: [],
                 tone: "professional",
-                frequency: 24, // Once a day
+                frequency: 24,
             });
         }
     },

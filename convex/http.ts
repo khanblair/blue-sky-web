@@ -23,7 +23,7 @@ http.route({
             const evt = wh.verify(payloadString, svixHeaders) as any;
 
             if (evt.type === "user.created") {
-                await ctx.runMutation(internal.users.syncUser, {
+                await ctx.runMutation(internal.users.syncUserInternal, {
                     clerkId: evt.data.id,
                 });
             }

@@ -1,5 +1,5 @@
-import { internalAction, internalMutation, internalQuery, query } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // ... existing internal functions ...
@@ -149,5 +149,69 @@ export const logPostResult = internalMutation({
                 await ctx.db.patch(prefs._id, { lastPostTime: Date.now() });
             }
         }
+    },
+});
+
+export const postNow = action({
+    args: { text: v.string() },
+    handler: async (ctx, args): Promise<{ success: boolean; uri: string }> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.runQuery(api.users.getCurrentUser);
+        if (!user) throw new Error("User record not found");
+        if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        try {
+            // 1. Post to Bluesky
+            // @ts-ignore
+            const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
+                handle: user.handle,
+                appPassword: user.appPassword,
+                text: args.text,
+            });
+
+            // 2. Log Result
+            await ctx.runMutation(internal.posting.logPostResult, {
+                userId: user._id,
+                content: args.text,
+                blueskyUri,
+                status: "success",
+            });
+
+            return { success: true, uri: blueskyUri };
+        } catch (error) {
+            console.error("Manual post failed:", error);
+            await ctx.runMutation(internal.posting.logPostResult, {
+                userId: user._id,
+                content: args.text,
+                status: "failed",
+                error: String(error),
+            });
+            throw new Error(String(error));
+        }
+    },
+});
+
+export const generateAndPostNow = action({
+    args: { topics: v.array(v.string()), tone: v.string() },
+    handler: async (ctx, args): Promise<any> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.runQuery(api.users.getCurrentUser);
+        if (!user) throw new Error("User record not found");
+
+        // 1. Generate content
+        const content = await ctx.runAction(internal.openrouter.generatePost, {
+            topics: args.topics,
+            tone: args.tone,
+        });
+
+        if (!content) throw new Error("Failed to generate content");
+
+        // 2. Post it
+        // @ts-ignore
+        return await ctx.runAction(api.posting.postNow, { text: content });
     },
 });

@@ -1,4 +1,5 @@
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 export const generatePost = internalAction({
@@ -6,7 +7,7 @@ export const generatePost = internalAction({
         topics: v.array(v.string()),
         tone: v.string(),
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx, args): Promise<string> => {
         const apiKey = process.env.OPENROUTER_API_KEY;
         if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
 
@@ -29,5 +30,18 @@ export const generatePost = internalAction({
 
         const data = await response.json();
         return data.choices[0].message.content.trim();
+    },
+});
+
+export const generatePostPublic = action({
+    args: {
+        topics: v.array(v.string()),
+        tone: v.string(),
+    },
+    handler: async (ctx, args): Promise<string> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        return await ctx.runAction(internal.openrouter.generatePost, args);
     },
 });

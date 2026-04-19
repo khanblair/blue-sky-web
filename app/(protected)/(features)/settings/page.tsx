@@ -195,92 +195,9 @@ export default function SettingsPage() {
                         </CardContent>
                     </CardRoot>
 
-                    <CardRoot className="bg-surface border-divider border">
-                        <CardHeader className="flex gap-3 p-6">
-                            <Zap className="text-warning" size={20} />
-                            <div className="flex flex-col">
-                                <p className="font-black uppercase tracking-widest text-sm">System Status</p>
-                                <p className="text-xs text-default-500">Enable or disable automation globally</p>
-                            </div>
-                        </CardHeader>
-                        <div className="h-px bg-divider w-full" />
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="font-bold">Active Posting</p>
-                                    <p className="text-xs text-default-500">Allow AI to generate and post to your account</p>
-                                </div>
-                                <SwitchRoot
-                                    isSelected={isActive}
-                                    onChange={(isSelected) => setIsActive(isSelected)}
-                                    className="group inline-flex items-center"
-                                >
-                                    <SwitchControl className="bg-default-200 group-data-[selected=true]:bg-success">
-                                        <SwitchThumb />
-                                    </SwitchControl>
-                                </SwitchRoot>
-                            </div>
-                        </CardContent>
-                    </CardRoot>
                 </div>
 
-                {/* Automation Preferences */}
                 <div className="space-y-8">
-                    <CardRoot className="bg-surface border-divider border">
-                        <CardHeader className="flex gap-3 p-6 font-black uppercase tracking-widest text-sm">
-                            <Clock className="text-success" size={20} />
-                            <p>Automation Settings</p>
-                        </CardHeader>
-                        <div className="h-px bg-divider w-full" />
-                        <CardContent className="p-6 space-y-6">
-                            <TextFieldRoot className="flex flex-col gap-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Posting Frequency (Hours)</Label>
-                                <Input
-                                    type="number"
-                                    value={frequency.toString()}
-                                    onChange={(e) => setFrequency(parseInt(e.target.value) || 24)}
-                                    className="bg-default-50 border-divider"
-                                    min={1}
-                                    max={168}
-                                />
-                            </TextFieldRoot>
-
-                            <TextFieldRoot className="flex flex-col gap-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">AI Voice Tone</Label>
-                                <div className="grid grid-cols-2 gap-2 text-center items-center justify-center">
-                                    {["professional", "casual", "humorous", "intellectual"].map((t) => (
-                                        <Button
-                                            key={t}
-                                            variant={tone === t ? "primary" : "outline"}
-                                            className="font-bold uppercase text-[10px] tracking-widest h-9"
-                                            onPress={() => setTone(t)}
-                                        >
-                                            {t}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </TextFieldRoot>
-
-                            <div className="pt-4">
-                                <Button
-                                    variant="primary"
-                                    className="w-full font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-success/20"
-                                    onPress={handleSavePrefs}
-                                    isDisabled={isSavingPrefs}
-                                >
-                                    {isSavingPrefs ? (
-                                        <>
-                                            <Loader2 className="animate-spin mr-2" size={16} />
-                                            Saving...
-                                        </>
-                                    ) : (
-                                        "Save Preferences"
-                                    )}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </CardRoot>
-
                     <CardRoot className="bg-surface border-divider border">
                         <CardContent className="p-8 flex flex-col items-center text-center gap-4">
                             <ShieldCheck className="text-primary w-12 h-12" />

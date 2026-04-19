@@ -1,4 +1,4 @@
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
@@ -54,6 +54,64 @@ export const syncProfile = action({
             return { success: true, displayName: profileData.displayName };
         } catch (error: any) {
             console.error("Profile sync error:", error);
+            throw new Error(error.message);
+        }
+    },
+});
+
+export const postToBluesky = internalAction({
+    args: {
+        handle: v.string(),
+        appPassword: v.string(),
+        text: v.string(),
+    },
+    handler: async (ctx, args): Promise<string> => {
+        try {
+            // 1. Authenticate
+            const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    identifier: args.handle,
+                    password: args.appPassword,
+                }),
+            });
+
+            if (!authResponse.ok) {
+                const error = await authResponse.json();
+                throw new Error(error.message || "Bluesky authentication failed");
+            }
+
+            const authData = await authResponse.json();
+            const accessJwt = authData.accessJwt;
+
+            // 2. Post
+            const postResponse = await fetch("https://bsky.social/xrpc/app.bsky.feed.post", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${accessJwt}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    repo: authData.did,
+                    collection: "app.bsky.feed.post",
+                    record: {
+                        $type: "app.bsky.feed.post",
+                        text: args.text,
+                        createdAt: new Date().toISOString(),
+                    },
+                }),
+            });
+
+            if (!postResponse.ok) {
+                const error = await postResponse.json();
+                throw new Error(error.message || "Failed to push post to Bluesky");
+            }
+
+            const postData = await postResponse.json();
+            return postData.uri;
+        } catch (error: any) {
+            console.error("Bluesky post error:", error);
             throw new Error(error.message);
         }
     },

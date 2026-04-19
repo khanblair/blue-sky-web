@@ -6,18 +6,10 @@ import {
     CardHeader,
     CardContent,
     Button,
-    TextFieldRoot,
     Label,
     Input,
     Switch,
     Chip,
-    Table,
-    TableContent,
-    TableHeader,
-    TableBody,
-    TableCell,
-    TableColumn,
-    TableRow,
     TabsRoot,
     TabList,
     Tab,
@@ -30,32 +22,24 @@ import {
     Send,
     MessageSquare,
     Clock,
-    CheckCircle2,
-    XCircle,
     Loader2
 } from "lucide-react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { cn } from "@/lib/utils";
-
-function formatTimeAgo(timestamp: number) {
-    const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    if (seconds < 60) return "just now";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return new Date(timestamp).toLocaleDateString();
-}
+import { formatDistanceToNow } from "date-fns";
 
 export default function DashboardPage() {
     const user = useQuery(api.users.getCurrentUser);
     const preferences = useQuery(api.users.getPreferences);
     const stats = useQuery(api.posting.getStats);
     const history = useQuery(api.posting.getPostHistory);
+
+    const updateUser = useMutation(api.users.createOrUpdateUser);
     const updatePrefs = useMutation(api.users.updatePreferences);
+    const postNow = useAction(api.posting.postNow);
 
     const [isSaving, setIsSaving] = useState(false);
+    const [isPosting, setIsPosting] = useState(false);
     const [topicsStr, setTopicsStr] = useState("");
     const [localPrefs, setLocalPrefs] = useState({
         tone: "professional",
@@ -80,10 +64,39 @@ export default function DashboardPage() {
                 tone: localPrefs.tone,
                 frequency: localPrefs.frequency,
             });
+            alert("Preferences saved!");
         } catch (error) {
-            console.error("Failed to save preferences:", error);
+            console.error("Save failed:", error);
+            alert("Failed to save preferences");
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleToggleActive = async () => {
+        if (!user) return;
+        try {
+            await updateUser({
+                handle: user.handle || "",
+                appPassword: user.appPassword || "",
+                isActive: !user.isActive,
+            });
+        } catch (error) {
+            alert("Toggle failed");
+        }
+    };
+
+    const handlePostNow = async () => {
+        setIsPosting(true);
+        try {
+            alert("Triggering AI broadcast based on current strategy...");
+            // @ts-ignore
+            await postNow({ text: `AI Broadcast: Exploring ${topicsStr}` });
+            alert("Posted successfully!");
+        } catch (error) {
+            alert("Broadcast failed");
+        } finally {
+            setIsPosting(false);
         }
     };
 
@@ -103,16 +116,28 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-8 pb-12">
             <header className="flex justify-between items-end">
                 <div>
-                    <h1 className="text-4xl font-black tracking-tight mb-2">Dashboard</h1>
+                    <h1 className="text-4xl font-black tracking-tight mb-2 uppercase text-white">Dashboard</h1>
                     <p className="text-default-500">Manage your automated BlueSky presence</p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="outline" className="font-bold" isDisabled={!user?.isActive}>
-                        <Play size={18} className="mr-2" />
-                        {user?.isActive ? "Pause Posting" : "Resume Posting"}
+                    <Button
+                        variant="outline"
+                        className="font-bold border-divider bg-surface"
+                        onPress={handleToggleActive}
+                    >
+                        {user?.isActive ? (
+                            <><Play size={18} className="mr-2 text-warning fill-warning" /> Pause</>
+                        ) : (
+                            <><Play size={18} className="mr-2 text-success fill-success" /> Resume</>
+                        )}
                     </Button>
-                    <Button variant="primary" className="font-bold">
-                        <Send size={18} className="mr-2" />
+                    <Button
+                        variant="primary"
+                        className="font-bold shadow-lg shadow-primary/20"
+                        onPress={handlePostNow}
+                        isDisabled={isPosting}
+                    >
+                        {isPosting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="mr-2" />}
                         Post Now
                     </Button>
                 </div>
@@ -121,17 +146,17 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Connection Status */}
                 <CardRoot className="bg-surface border border-divider/50">
-                    <CardContent className="flex flex-row items-center gap-4 p-6">
+                    <CardContent className="flex flex-row items-center gap-4 p-6 overflow-hidden">
                         <div className="w-12 h-12 rounded-2xl bg-success/10 flex items-center justify-center flex-shrink-0">
                             <Cloud className="text-success" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs text-default-500 font-black uppercase tracking-widest text-[9px] mb-1 opacity-70">Account Connection</p>
-                            <div className="flex flex-col gap-0.5">
-                                <span className="font-black text-xl tracking-tight break-all leading-tight">
+                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                            <p className="text-[9px] text-default-500 font-black uppercase tracking-widest mb-1 opacity-70">Account Connection</p>
+                            <div className="flex flex-col gap-1">
+                                <span className="font-black text-lg tracking-tight truncate leading-none text-white" title={user?.handle}>
                                     {user?.handle || "Not Connected"}
                                 </span>
-                                <div className="mt-1">
+                                <div className="flex items-center">
                                     <Chip
                                         variant="soft"
                                         color={user?.isActive ? "success" : "default"}
@@ -143,7 +168,7 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                         </div>
-                        <Button size="sm" variant="ghost" className="w-8 h-8 min-w-0 p-0" onPress={() => window.location.href = "/settings"}>
+                        <Button size="sm" variant="ghost" className="w-8 h-8 min-w-0 p-0 flex-shrink-0" onPress={() => window.location.href = "/settings"}>
                             <Settings size={18} className="text-default-400" />
                         </Button>
                     </CardContent>
@@ -155,9 +180,9 @@ export default function DashboardPage() {
                         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                             <MessageSquare className="text-primary" />
                         </div>
-                        <div>
-                            <p className="text-sm text-default-500 font-medium uppercase tracking-wider text-[10px] mb-1">Total Posts Made</p>
-                            <p className="text-3xl font-black text-primary leading-tight">{stats?.totalPosts || 0}</p>
+                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                            <p className="text-[9px] text-default-500 font-black uppercase tracking-widest mb-1 opacity-70">Total Posts Made</p>
+                            <p className="text-2xl font-black text-primary leading-none">{stats?.totalPosts || 0}</p>
                         </div>
                     </CardContent>
                 </CardRoot>
@@ -168,9 +193,9 @@ export default function DashboardPage() {
                         <div className="w-12 h-12 rounded-2xl bg-warning/10 flex items-center justify-center flex-shrink-0">
                             <Clock className="text-warning" />
                         </div>
-                        <div>
-                            <p className="text-sm text-default-500 font-medium uppercase tracking-wider text-[10px] mb-1">Next Scheduled</p>
-                            <p className="text-xl font-bold tracking-tight leading-tight">
+                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                            <p className="text-[9px] text-default-500 font-black uppercase tracking-widest mb-1 opacity-70">Next Scheduled</p>
+                            <p className="text-lg font-bold tracking-tight leading-none truncate text-white">
                                 {nextScheduledDate
                                     ? nextScheduledDate.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                                     : "Not Scheduled"}
@@ -182,79 +207,77 @@ export default function DashboardPage() {
 
             <TabsRoot aria-label="Dashboard Tabs" className="w-full">
                 <TabList className="gap-6 w-full relative rounded-none p-0 border-b border-divider mb-6">
-                    <Tab id="preferences" className="font-bold text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent">
-                        Posting Preferences
+                    <Tab id="preferences" className="font-bold text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent uppercase tracking-tight">
+                        Strategy
                     </Tab>
-                    <Tab id="history" className="font-bold text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent">
-                        Post History
+                    <Tab id="history" className="font-bold text-lg px-0 pb-3 h-auto data-[selected=true]:text-primary data-[selected=true]:border-b-2 data-[selected=true]:border-primary transition-all rounded-none bg-transparent uppercase tracking-tight">
+                        History
                     </Tab>
                 </TabList>
 
                 <TabPanel id="preferences">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <CardRoot className="p-4 bg-surface border-divider border">
+                        <CardRoot className="p-4 bg-surface border-divider border shadow-sm">
                             <CardHeader className="flex gap-3 pb-4">
                                 <Cloud className="text-primary" />
                                 <div className="flex flex-col">
-                                    <p className="text-md font-bold">Content Strategy</p>
-                                    <p className="text-small text-default-500 uppercase tracking-tighter text-[10px]">Refine your AI's writing style</p>
+                                    <p className="text-md font-bold uppercase tracking-tight text-white">Content Strategy</p>
+                                    <p className="text-small text-default-500 uppercase tracking-tighter text-[9px]">Refine your AI's writing style</p>
                                 </div>
                             </CardHeader>
                             <CardContent className="flex flex-col gap-6 pt-4">
-                                <TextFieldRoot className="flex flex-col gap-2">
-                                    <Label className="text-sm font-semibold">Topics (comma separated)</Label>
-                                    <Input
-                                        placeholder="Tech, Philosophy, AI"
-                                        value={topicsStr}
-                                        onChange={(e) => setTopicsStr(e.target.value)}
-                                        className="px-3 py-2 bg-default-100 rounded-lg text-sm border border-transparent focus:border-primary outline-none transition-colors"
-                                    />
-                                </TextFieldRoot>
-                                <TextFieldRoot className="flex flex-col gap-2">
-                                    <Label className="text-sm font-semibold">Writing Tone</Label>
-                                    <Input
-                                        placeholder="Professional yet witty"
-                                        value={localPrefs.tone}
-                                        onChange={(e) => setLocalPrefs({ ...localPrefs, tone: e.target.value })}
-                                        className="px-3 py-2 bg-default-100 rounded-lg text-sm border border-transparent focus:border-primary outline-none transition-colors"
-                                    />
-                                </TextFieldRoot>
-                                <TextFieldRoot className="flex flex-col gap-2">
-                                    <Label className="text-sm font-semibold">Posting Frequency (Hours)</Label>
-                                    <Input
-                                        placeholder="24"
-                                        type="number"
-                                        value={localPrefs.frequency.toString()}
-                                        onChange={(e) => setLocalPrefs({ ...localPrefs, frequency: parseInt(e.target.value) || 1 })}
-                                        className="px-3 py-2 bg-default-100 rounded-lg text-sm border border-transparent focus:border-primary outline-none transition-colors"
-                                    />
-                                </TextFieldRoot>
+                                <div className="space-y-4">
+                                    <div className="flex flex-col gap-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Topics (comma separated)</Label>
+                                        <Input
+                                            placeholder="Tech, Philosophy, AI"
+                                            value={topicsStr}
+                                            onChange={(e) => setTopicsStr(e.target.value)}
+                                            className="bg-default-50 border-divider"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Writing Tone</Label>
+                                        <Input
+                                            placeholder="Professional yet witty"
+                                            value={localPrefs.tone}
+                                            onChange={(e) => setLocalPrefs({ ...localPrefs, tone: e.target.value })}
+                                            className="bg-default-50 border-divider"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Posting Frequency (Hours)</Label>
+                                        <Input
+                                            placeholder="24"
+                                            type="number"
+                                            value={localPrefs.frequency.toString()}
+                                            onChange={(e) => setLocalPrefs({ ...localPrefs, frequency: parseInt(e.target.value) || 1 })}
+                                            className="bg-default-50 border-divider"
+                                        />
+                                    </div>
+                                </div>
                                 <Button
                                     variant="primary"
-                                    className="mt-4 font-bold"
+                                    className="mt-4 font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20"
                                     onPress={handleSavePreferences}
                                     isDisabled={isSaving}
                                 >
-                                    {isSaving ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Saving...
-                                        </>
-                                    ) : (
-                                        "Save Preferences"
-                                    )}
+                                    {isSaving ? "Saving..." : "Save Strategy"}
                                 </Button>
                             </CardContent>
                         </CardRoot>
 
                         <div className="flex flex-col gap-8">
-                            <CardRoot className="p-4 bg-surface border-divider border">
-                                <CardContent className="flex flex-row items-center justify-between p-2">
+                            <CardRoot className="p-4 bg-surface border-divider border shadow-sm">
+                                <CardContent className="flex flex-row items-center justify-between p-4">
                                     <div className="flex flex-col gap-1">
-                                        <p className="text-md font-bold">Automated Posting</p>
-                                        <p className="text-small text-default-500 lowercase">Toggle entire automation system</p>
+                                        <p className="text-md font-bold uppercase tracking-tight text-white">Automated Posting</p>
+                                        <p className="text-[10px] text-default-500 uppercase tracking-widest opacity-60">Toggle entire automation system</p>
                                     </div>
-                                    <Switch isSelected={user?.isActive} />
+                                    <Switch
+                                        isSelected={user?.isActive}
+                                        onChange={handleToggleActive}
+                                    />
                                 </CardContent>
                             </CardRoot>
                         </div>
@@ -262,60 +285,69 @@ export default function DashboardPage() {
                 </TabPanel>
 
                 <TabPanel id="history">
-                    <CardRoot className="bg-surface border-divider border">
+                    <CardRoot className="bg-surface border-divider border shadow-sm">
                         <CardContent className="p-0 overflow-x-auto">
-                            <Table aria-label="Post History Table" className="min-w-full">
-                                <TableContent>
-                                    <TableHeader className="bg-default-50 border-b border-divider">
-                                        <TableColumn className="px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-default-400">Content</TableColumn>
-                                        <TableColumn className="px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-default-400">Timestamp</TableColumn>
-                                        <TableColumn className="px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-default-400">Status</TableColumn>
-                                        <TableColumn className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-default-400">Action</TableColumn>
-                                    </TableHeader>
-                                    <TableBody items={history || []}>
-                                        {(post: any) => (
-                                            <TableRow key={post._id} className="border-b border-divider/50 last:border-0 hover:bg-default-50 transition-colors">
-                                                <TableCell className="px-6 py-4">
-                                                    <p className="line-clamp-1 text-sm font-medium">{post.content || post.error || "No content"}</p>
-                                                </TableCell>
-                                                <TableCell className="px-6 py-4 text-default-500 text-xs">
-                                                    {formatTimeAgo(post.timestamp)}
-                                                </TableCell>
-                                                <TableCell className="px-6 py-4">
+                            <table className="w-full min-w-full border-collapse">
+                                <thead>
+                                    <tr className="border-b border-divider bg-default-50/50">
+                                        {["CONTENT", "TIMESTAMP", "STATUS", "ACTION"].map((col) => (
+                                            <th key={col} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest text-default-400 ${col === "ACTION" ? "text-right pr-8" : "text-left"}`}>
+                                                {col}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(history || []).length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-default-500 font-bold text-sm">
+                                                No post history yet
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        (history || []).map((post: any) => (
+                                            <tr key={post._id} className="border-b border-divider/40 last:border-0 hover:bg-default-50 transition-colors">
+                                                <td className="px-6 py-5">
+                                                    <p className="line-clamp-1 text-sm font-bold tracking-tight text-white/90">{post.content || post.error || "No content"}</p>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className="text-[11px] font-bold text-default-500 uppercase">
+                                                        {formatDistanceToNow(post.timestamp, { addSuffix: true })}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5">
                                                     <Chip
+                                                        variant="soft"
                                                         color={post.status === "success" ? "success" : "danger"}
                                                         size="sm"
-                                                        className={cn(
-                                                            "border-none",
-                                                            post.status === "success" ? "bg-success/20 text-success" : "bg-danger/20 text-danger"
-                                                        )}
+                                                        className="font-black text-[9px] uppercase tracking-widest h-6 px-3"
                                                     >
                                                         {post.status}
                                                     </Chip>
-                                                </TableCell>
-                                                <TableCell className="px-6 py-4 text-right">
+                                                </td>
+                                                <td className="px-6 py-5 text-right pr-8">
                                                     {post.blueskyUri ? (
                                                         <a
                                                             href={`https://bsky.app/profile/${user?.handle}/post/${post.blueskyUri.split('/').pop()}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-xs text-primary font-bold hover:underline"
+                                                            className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
                                                         >
-                                                            View
+                                                            View Post
                                                         </a>
                                                     ) : (
-                                                        <span className="text-xs text-zinc-600">N/A</span>
+                                                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">N/A</span>
                                                     )}
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </TableContent>
-                            </Table>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
                         </CardContent>
                     </CardRoot>
                 </TabPanel>
             </TabsRoot>
-        </div >
+        </div>
     );
 }

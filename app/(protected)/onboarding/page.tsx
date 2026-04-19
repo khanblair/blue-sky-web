@@ -48,20 +48,30 @@ export default function OnboardingPage() {
         setIsLoading(true);
         setError(null);
         try {
+            console.log("Starting onboarding connection for handle:", handle);
+
             // 1. Save credentials
             await createUser({
                 handle,
                 appPassword: password,
                 isActive: true
             });
+            console.log("Credentials saved successfully");
 
             // 2. Sync profile metadata
+            console.log("Triggering profile sync...");
             await syncProfile();
+            console.log("Profile sync complete");
 
             setStep(3);
         } catch (err: any) {
-            console.error("Connection failed:", err);
-            setError(err.message || "Failed to connect to Bluesky. Please check your credentials.");
+            console.error("Connection failed with error:", err);
+            const errorMessage = err.message || "";
+            if (errorMessage.includes("Not authenticated")) {
+                setError("Convex could not verify your Clerk identity. Please ensure you have created a JWT Template named 'convex' in your Clerk Dashboard.");
+            } else {
+                setError(errorMessage || "Failed to connect to Bluesky. Please check your credentials.");
+            }
         } finally {
             setIsLoading(false);
         }
