@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -12,6 +12,7 @@ export default function FeaturesLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const { isAuthenticated } = useConvexAuth();
     const user = useQuery(api.users.getCurrentUser);
     const syncUser = useMutation(api.users.syncUser);
     const router = useRouter();
@@ -19,8 +20,10 @@ export default function FeaturesLayout({
     const syncChecked = useRef(false);
 
     useEffect(() => {
-        // 1. If user is null (authenticated but not in Convex), sync them
-        if (user === null && !syncChecked.current) {
+        // 1. If user is null (authenticated but not in Convex), sync them.
+        // Guard with isAuthenticated so the mutation is only called once
+        // Convex has a valid auth token — prevents "Not authenticated" errors.
+        if (isAuthenticated && user === null && !syncChecked.current) {
             syncChecked.current = true;
             syncUser();
         }
@@ -30,7 +33,7 @@ export default function FeaturesLayout({
         if (user && !user.handle && pathname !== "/onboarding") {
             router.push("/onboarding");
         }
-    }, [user, syncUser, router, pathname]);
+    }, [isAuthenticated, user, syncUser, router, pathname]);
 
     if (user === undefined) {
         return (

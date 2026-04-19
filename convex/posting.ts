@@ -1,8 +1,17 @@
-import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import {
+    action,
+    internalAction,
+    internalMutation,
+    internalQuery,
+    mutation,
+    query,
+} from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 
-// ... existing internal functions ...
+// ---------------------------------------------------------------------------
+// Queries
+// ---------------------------------------------------------------------------
 
 export const getPostHistory = query({
     handler: async (ctx) => {
@@ -20,7 +29,43 @@ export const getPostHistory = query({
             .query("postHistory")
             .withIndex("by_userId", (q) => q.eq("userId", user._id))
             .order("desc")
-            .take(10);
+            .collect();
+    },
+});
+
+export const getAllPendingPosts = query({
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+
+        const empty = { posts: [] as any[], postIntervalHours: 8, lastPostTime: 0 };
+        if (!identity) return empty;
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+
+        if (!user) return empty;
+
+        // Return all pending posts along with the user's post interval so the
+        // UI can compute estimated publish times.
+        const prefs = await ctx.db
+            .query("preferences")
+            .withIndex("by_userId", (q) => q.eq("userId", user._id))
+            .unique();
+
+        const posts = await ctx.db
+            .query("pendingPosts")
+            .withIndex("by_userId", (q) => q.eq("userId", user._id))
+            .filter((q) => q.eq(q.field("status"), "pending"))
+            .order("asc") // oldest first — that's the publish order
+            .collect();
+
+        return {
+            posts,
+            postIntervalHours: prefs?.postIntervalHours ?? 8,
+            lastPostTime: prefs?.lastPostTime ?? 0,
+        };
     },
 });
 
@@ -42,69 +87,157 @@ export const getStats = query({
             .filter((q) => q.eq(q.field("status"), "success"))
             .collect();
 
-        return {
-            totalPosts: posts.length,
-        };
+        return { totalPosts: posts.length };
     },
 });
 
-export const processAllScheduledPosts = internalAction({
+export const getPendingPosts = query({
     handler: async (ctx) => {
-        const usersToPost = await ctx.runQuery(internal.posting.getUsersDueForPost);
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return [];
 
-        for (const user of usersToPost) {
-            try {
-                // 1. Generate Content
-                const content = await ctx.runAction(internal.openrouter.generatePost, {
-                    topics: user.preferences.topics,
-                    tone: user.preferences.tone,
-                });
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
 
-                if (!user || !user.isActive) {
-                    throw new Error("User not found or inactive.");
-                }
+        if (!user) return [];
 
-                if (!user.handle || !user.appPassword) {
-                    throw new Error("Bluesky handle and app password are required.");
-                }
-
-                // 2. Post to Bluesky
-                // @ts-ignore
-                const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
-                    handle: user.handle,
-                    appPassword: user.appPassword,
-                    text: content,
-                });
-
-                // 3. Log Success and Update Last Post Time
-                await ctx.runMutation(internal.posting.logPostResult, {
-                    userId: user._id,
-                    content,
-                    blueskyUri,
-                    status: "success",
-                });
-            } catch (error) {
-                console.error(`Failed to post for user ${user.handle}:`, error);
-                await ctx.runMutation(internal.posting.logPostResult, {
-                    userId: user._id,
-                    content: "", // or last attempted content
-                    status: "failed",
-                    error: String(error),
-                });
-            }
-        }
+        return await ctx.db
+            .query("pendingPosts")
+            .withIndex("by_userId", (q) => q.eq("userId", user._id))
+            .filter((q) => q.eq(q.field("status"), "pending"))
+            .order("desc")
+            .collect();
     },
 });
 
-export const getUsersDueForPost = internalQuery({
+// ---------------------------------------------------------------------------
+// User-facing mutations for post management
+// ---------------------------------------------------------------------------
+
+export const retryFailedPost = action({
+    args: { postHistoryId: v.id("postHistory") },
+    handler: async (ctx, args): Promise<{ success: boolean; uri: string }> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.runQuery(api.users.getCurrentUser);
+        if (!user) throw new Error("User record not found");
+        if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        // Fetch the failed post record
+        const record = await ctx.runQuery(internal.posting.getPostHistoryRecord, {
+            postHistoryId: args.postHistoryId,
+        });
+        if (!record) throw new Error("Post record not found");
+        if (record.userId !== user._id) throw new Error("Unauthorized");
+
+        // @ts-ignore
+        const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
+            handle: user.handle,
+            appPassword: user.appPassword,
+            text: record.content,
+        });
+
+        await ctx.runMutation(internal.posting.logPostResult, {
+            userId: user._id,
+            content: record.content,
+            blueskyUri,
+            status: "success",
+        });
+
+        return { success: true, uri: blueskyUri };
+    },
+});
+
+export const savePostAsPending = mutation({
+    args: { content: v.string() },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+        if (!user) throw new Error("User not found");
+
+        await ctx.db.insert("pendingPosts", {
+            userId: user._id,
+            content: args.content.trim(),
+            generatedAt: Date.now(),
+            status: "pending",
+        });
+    },
+});
+
+export const updatePendingPost = mutation({
+    args: { pendingPostId: v.id("pendingPosts"), content: v.string() },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+        if (!user) throw new Error("User not found");
+
+        const post = await ctx.db.get(args.pendingPostId);
+        if (!post || post.userId !== user._id) throw new Error("Unauthorized");
+
+        await ctx.db.patch(args.pendingPostId, { content: args.content });
+    },
+});
+
+export const deletePendingPost = mutation({
+    args: { pendingPostId: v.id("pendingPosts") },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+        if (!user) throw new Error("User not found");
+
+        const post = await ctx.db.get(args.pendingPostId);
+        if (!post || post.userId !== user._id) throw new Error("Unauthorized");
+
+        await ctx.db.delete(args.pendingPostId);
+    },
+});
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+export const getPostHistoryRecord = internalQuery({
+    args: { postHistoryId: v.id("postHistory") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.postHistoryId);
+    },
+});
+
+export const getPendingPostRecord = internalQuery({
+    args: { pendingPostId: v.id("pendingPosts") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.pendingPostId);
+    },
+});
+
+export const getUsersDueForGenerate = internalQuery({
     handler: async (ctx) => {
         const now = Date.now();
+
         const activeUsers = await ctx.db
             .query("users")
             .filter((q) => q.eq(q.field("isActive"), true))
             .collect();
 
-        const dueUsers = [];
+        const due = [];
 
         for (const user of activeUsers) {
             const prefs = await ctx.db
@@ -112,20 +245,57 @@ export const getUsersDueForPost = internalQuery({
                 .withIndex("by_userId", (q) => q.eq("userId", user._id))
                 .unique();
 
-            if (prefs) {
-                const frequencyMs = prefs.frequency * 60 * 60 * 1000; // Assuming frequency is in hours
-                const lastPostTime = prefs.lastPostTime || 0;
+            if (!prefs) continue;
 
-                if (now - lastPostTime >= frequencyMs) {
-                    dueUsers.push({
-                        ...user,
-                        preferences: prefs,
-                    });
-                }
+            const intervalMs = (prefs.generateIntervalHours ?? 6) * 60 * 60 * 1000;
+            const lastGen = prefs.lastGenerateTime ?? 0;
+
+            if (now - lastGen >= intervalMs) {
+                due.push({ ...user, preferences: prefs });
             }
         }
 
-        return dueUsers;
+        return due;
+    },
+});
+
+export const getUsersDueForPost = internalQuery({
+    handler: async (ctx) => {
+        const now = Date.now();
+
+        const activeUsers = await ctx.db
+            .query("users")
+            .filter((q) => q.eq(q.field("isActive"), true))
+            .collect();
+
+        const due = [];
+
+        for (const user of activeUsers) {
+            const prefs = await ctx.db
+                .query("preferences")
+                .withIndex("by_userId", (q) => q.eq("userId", user._id))
+                .unique();
+
+            if (!prefs) continue;
+
+            const intervalMs = (prefs.postIntervalHours ?? 8) * 60 * 60 * 1000;
+            const lastPost = prefs.lastPostTime ?? 0;
+
+            if (now - lastPost < intervalMs) continue;
+
+            // Must have a pending post ready
+            const pending = await ctx.db
+                .query("pendingPosts")
+                .withIndex("by_userId", (q) => q.eq("userId", user._id))
+                .filter((q) => q.eq(q.field("status"), "pending"))
+                .first();
+
+            if (!pending) continue;
+
+            due.push({ ...user, preferences: prefs, pendingPost: pending });
+        }
+
+        return due;
     },
 });
 
@@ -152,6 +322,159 @@ export const logPostResult = internalMutation({
     },
 });
 
+export const savePendingPost = internalMutation({
+    args: { userId: v.id("users"), content: v.string() },
+    handler: async (ctx, args) => {
+        await ctx.db.insert("pendingPosts", {
+            userId: args.userId,
+            content: args.content,
+            generatedAt: Date.now(),
+            status: "pending",
+        });
+
+        // Update lastGenerateTime
+        const prefs = await ctx.db
+            .query("preferences")
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .unique();
+        if (prefs) {
+            await ctx.db.patch(prefs._id, { lastGenerateTime: Date.now() });
+        }
+    },
+});
+
+export const markPendingPostUsed = internalMutation({
+    args: { pendingPostId: v.id("pendingPosts"), status: v.string() },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.pendingPostId, { status: args.status });
+    },
+});
+
+// ---------------------------------------------------------------------------
+// Cron: Generate pending posts
+// ---------------------------------------------------------------------------
+
+export const generatePendingPosts = internalAction({
+    handler: async (ctx) => {
+        const users = await ctx.runQuery(internal.posting.getUsersDueForGenerate);
+
+        for (const user of users) {
+            try {
+                const content = await ctx.runAction(internal.openrouter.generatePost, {
+                    topics: user.preferences.topics,
+                    tone: user.preferences.tone,
+                });
+
+                await ctx.runMutation(internal.posting.savePendingPost, {
+                    userId: user._id,
+                    content,
+                });
+
+                console.log(`Generated pending post for ${user.handle}`);
+            } catch (error) {
+                console.error(`Failed to generate post for ${user.handle}:`, error);
+            }
+        }
+    },
+});
+
+// ---------------------------------------------------------------------------
+// Cron: Publish pending posts
+// ---------------------------------------------------------------------------
+
+export const publishPendingPosts = internalAction({
+    handler: async (ctx) => {
+        const users = await ctx.runQuery(internal.posting.getUsersDueForPost);
+
+        for (const user of users) {
+            const pending = (user as any).pendingPost;
+
+            try {
+                if (!user.isActive) throw new Error("User inactive");
+                if (!user.handle || !user.appPassword) throw new Error("Missing Bluesky credentials");
+
+                // @ts-ignore
+                const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
+                    handle: user.handle,
+                    appPassword: user.appPassword,
+                    text: pending.content,
+                });
+
+                await ctx.runMutation(internal.posting.markPendingPostUsed, {
+                    pendingPostId: pending._id,
+                    status: "posted",
+                });
+
+                await ctx.runMutation(internal.posting.logPostResult, {
+                    userId: user._id,
+                    content: pending.content,
+                    blueskyUri,
+                    status: "success",
+                });
+
+                console.log(`Published post for ${user.handle}: ${blueskyUri}`);
+            } catch (error) {
+                console.error(`Failed to publish post for ${user.handle}:`, error);
+
+                await ctx.runMutation(internal.posting.markPendingPostUsed, {
+                    pendingPostId: pending._id,
+                    status: "failed",
+                });
+
+                await ctx.runMutation(internal.posting.logPostResult, {
+                    userId: user._id,
+                    content: pending.content,
+                    status: "failed",
+                    error: String(error),
+                });
+            }
+        }
+    },
+});
+
+// ---------------------------------------------------------------------------
+// Manual actions (user-triggered)
+// ---------------------------------------------------------------------------
+
+export const postPendingNow = action({
+    args: { pendingPostId: v.id("pendingPosts") },
+    handler: async (ctx, args): Promise<{ success: boolean; uri: string }> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.runQuery(api.users.getCurrentUser);
+        if (!user) throw new Error("User record not found");
+        if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        const post = await ctx.runQuery(internal.posting.getPendingPostRecord, {
+            pendingPostId: args.pendingPostId,
+        });
+        if (!post) throw new Error("Pending post not found");
+        if (post.userId !== user._id) throw new Error("Unauthorized");
+
+        // @ts-ignore
+        const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
+            handle: user.handle,
+            appPassword: user.appPassword,
+            text: post.content,
+        });
+
+        await ctx.runMutation(internal.posting.markPendingPostUsed, {
+            pendingPostId: args.pendingPostId,
+            status: "posted",
+        });
+
+        await ctx.runMutation(internal.posting.logPostResult, {
+            userId: user._id,
+            content: post.content,
+            blueskyUri,
+            status: "success",
+        });
+
+        return { success: true, uri: blueskyUri };
+    },
+});
+
 export const postNow = action({
     args: { text: v.string() },
     handler: async (ctx, args): Promise<{ success: boolean; uri: string }> => {
@@ -163,7 +486,6 @@ export const postNow = action({
         if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
 
         try {
-            // 1. Post to Bluesky
             // @ts-ignore
             const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
                 handle: user.handle,
@@ -171,7 +493,6 @@ export const postNow = action({
                 text: args.text,
             });
 
-            // 2. Log Result
             await ctx.runMutation(internal.posting.logPostResult, {
                 userId: user._id,
                 content: args.text,
@@ -181,7 +502,6 @@ export const postNow = action({
 
             return { success: true, uri: blueskyUri };
         } catch (error) {
-            console.error("Manual post failed:", error);
             await ctx.runMutation(internal.posting.logPostResult, {
                 userId: user._id,
                 content: args.text,
@@ -202,7 +522,6 @@ export const generateAndPostNow = action({
         const user = await ctx.runQuery(api.users.getCurrentUser);
         if (!user) throw new Error("User record not found");
 
-        // 1. Generate content
         const content = await ctx.runAction(internal.openrouter.generatePost, {
             topics: args.topics,
             tone: args.tone,
@@ -210,8 +529,19 @@ export const generateAndPostNow = action({
 
         if (!content) throw new Error("Failed to generate content");
 
-        // 2. Post it
         // @ts-ignore
         return await ctx.runAction(api.posting.postNow, { text: content });
+    },
+});
+
+// ---------------------------------------------------------------------------
+// Legacy: kept so existing cron reference doesn't break during migration
+// ---------------------------------------------------------------------------
+
+export const processAllScheduledPosts = internalAction({
+    handler: async (ctx) => {
+        // Delegates to the new split actions
+        await ctx.runAction(internal.posting.generatePendingPosts);
+        await ctx.runAction(internal.posting.publishPendingPosts);
     },
 });

@@ -13,15 +13,100 @@ import {
     SwitchControl,
     SwitchThumb,
 } from "@heroui/react";
-import {
-    Sparkles,
-    Zap,
-    Clock,
-    Loader2,
-    MessageSquare,
-} from "lucide-react";
+import { Sparkles, Zap, CalendarClock, Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+
+const GENERATE_SUGGESTIONS = [
+    { label: "Every 1h", value: 1 },
+    { label: "Every 2h", value: 2 },
+    { label: "Every 3h", value: 3 },
+    { label: "Every 6h", value: 6 },
+    { label: "Every 12h", value: 12 },
+    { label: "Every 24h", value: 24 },
+];
+
+const POST_SUGGESTIONS = [
+    { label: "Every 1h", value: 1 },
+    { label: "Every 3h", value: 3 },
+    { label: "Every 6h", value: 6 },
+    { label: "Every 8h", value: 8 },
+    { label: "Every 12h", value: 12 },
+    { label: "Every 24h", value: 24 },
+];
+
+const SUGGESTED_TONES = ["professional", "casual", "humorous", "intellectual", "enthusiastic"];
+const SUGGESTED_TOPICS = ["Tech", "Philosophy", "AI", "Space", "Stoicism"];
+
+function IntervalPicker({
+    label,
+    description,
+    value,
+    onChange,
+    suggestions,
+    warning,
+}: {
+    label: string;
+    description: string;
+    value: number;
+    onChange: (v: number) => void;
+    suggestions: { label: string; value: number }[];
+    warning?: string;
+}) {
+    // Keep a raw string while the user is typing so we don't snap mid-keystroke
+    const [raw, setRaw] = useState(value.toString());
+
+    // Sync raw when the committed value changes externally (e.g. suggestion click)
+    useEffect(() => {
+        setRaw(value.toString());
+    }, [value]);
+
+    const commit = (str: string) => {
+        const parsed = parseInt(str, 10);
+        const clamped = isNaN(parsed) || parsed < 1 ? 1 : Math.min(parsed, 168);
+        onChange(clamped);
+        setRaw(clamped.toString());
+    };
+
+    return (
+        <TextFieldRoot className="flex flex-col gap-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">{label}</Label>
+            <p className="text-[10px] text-default-500 italic">{description}</p>
+            <div className="flex items-center gap-2">
+                <Input
+                    type="number"
+                    value={raw}
+                    onChange={(e) => setRaw(e.target.value)}
+                    onBlur={(e) => commit(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && commit((e.target as HTMLInputElement).value)}
+                    className="bg-default-50 border-divider w-24"
+                    min={1}
+                    max={168}
+                />
+                <span className="text-xs text-default-500 font-bold">hours</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+                {suggestions.map((s) => (
+                    <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => onChange(s.value)}
+                        className={`h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors ${
+                            value === s.value
+                                ? "bg-primary border-primary text-white"
+                                : "bg-transparent border-divider text-default-400 hover:border-primary/50 hover:text-primary"
+                        }`}
+                    >
+                        {s.label}
+                    </button>
+                ))}
+            </div>
+            {warning && (
+                <p className="text-[10px] text-warning font-bold mt-1">{warning}</p>
+            )}
+        </TextFieldRoot>
+    );
+}
 
 export default function AIPage() {
     const user = useQuery(api.users.getCurrentUser);
@@ -32,7 +117,8 @@ export default function AIPage() {
     const [topicsStr, setTopicsStr] = useState("");
     const [localPrefs, setLocalPrefs] = useState({
         tone: "professional",
-        frequency: 24,
+        generateIntervalHours: 6,
+        postIntervalHours: 8,
     });
     const [isSaving, setIsSaving] = useState(false);
 
@@ -40,22 +126,25 @@ export default function AIPage() {
         if (preferences) {
             setLocalPrefs({
                 tone: preferences.tone,
-                frequency: preferences.frequency,
+                generateIntervalHours: preferences.generateIntervalHours ?? 6,
+                postIntervalHours: preferences.postIntervalHours ?? 8,
             });
             setTopicsStr(preferences.topics.join(", "));
         }
     }, [preferences]);
 
-    const handleSavePreferences = async () => {
+    const handleSave = async () => {
         setIsSaving(true);
         try {
             await updatePrefs({
                 topics: topicsStr.split(",").map((s) => s.trim()).filter(Boolean),
                 tone: localPrefs.tone,
-                frequency: localPrefs.frequency,
+                frequency: localPrefs.generateIntervalHours, // keep legacy field in sync
+                generateIntervalHours: localPrefs.generateIntervalHours,
+                postIntervalHours: localPrefs.postIntervalHours,
             });
             alert("AI Preferences saved!");
-        } catch (error) {
+        } catch {
             alert("Failed to save preferences");
         } finally {
             setIsSaving(false);
@@ -64,14 +153,13 @@ export default function AIPage() {
 
     const handleToggleActive = async (e: any) => {
         if (!user) return;
-        const isSelected = e.target.checked;
         try {
             await updateUser({
                 handle: user.handle || "",
                 appPassword: user.appPassword || "",
-                isActive: isSelected,
+                isActive: e.target.checked,
             });
-        } catch (error) {
+        } catch {
             alert("Failed to toggle system status");
         }
     };
@@ -84,9 +172,8 @@ export default function AIPage() {
         );
     }
 
-    const SUGGESTED_FREQUENCIES = [1, 6, 12, 24, 48];
-    const SUGGESTED_TONES = ["professional", "casual", "humorous", "intellectual", "enthusiastic"];
-    const SUGGESTED_TOPICS = ["Tech", "Philosophy", "AI", "Space", "Stoicism"];
+    const postTooFast =
+        localPrefs.postIntervalHours < localPrefs.generateIntervalHours;
 
     return (
         <div className="flex flex-col gap-8 pb-12">
@@ -97,40 +184,36 @@ export default function AIPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-8">
-                    {/* Automation Settings */}
+                    {/* Schedule */}
                     <CardRoot className="bg-surface border-divider border">
                         <CardHeader className="flex gap-3 p-6 font-black uppercase tracking-widest text-sm">
-                            <Clock className="text-success" size={20} />
-                            <p>Automation Behavior</p>
+                            <CalendarClock className="text-success" size={20} />
+                            <p>Schedule</p>
                         </CardHeader>
                         <div className="h-px bg-divider w-full" />
                         <CardContent className="p-6 space-y-6">
-                            <TextFieldRoot className="flex flex-col gap-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Posting Frequency (Hours)</Label>
-                                <Input
-                                    type="number"
-                                    value={localPrefs.frequency.toString()}
-                                    onChange={(e) => setLocalPrefs({ ...localPrefs, frequency: parseInt(e.target.value) || 24 })}
-                                    className="bg-default-50 border-divider"
-                                    min={1}
-                                    max={168}
-                                />
-                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                    {SUGGESTED_FREQUENCIES.map((f) => (
-                                        <Button
-                                            key={f}
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-6 px-2 text-[10px] font-bold border border-divider rounded-full hover:bg-success/10 hover:border-success/50"
-                                            onPress={() => setLocalPrefs({ ...localPrefs, frequency: f })}
-                                        >
-                                            {f}h
-                                        </Button>
-                                    ))}
-                                </div>
-                            </TextFieldRoot>
+                            <IntervalPicker
+                                label="Generate interval"
+                                description="How often the AI generates a new pending post."
+                                value={localPrefs.generateIntervalHours}
+                                onChange={(v) => setLocalPrefs({ ...localPrefs, generateIntervalHours: v })}
+                                suggestions={GENERATE_SUGGESTIONS}
+                            />
+                            <IntervalPicker
+                                label="Publish interval"
+                                description="How often a pending post is published to Bluesky."
+                                value={localPrefs.postIntervalHours}
+                                onChange={(v) => setLocalPrefs({ ...localPrefs, postIntervalHours: v })}
+                                suggestions={POST_SUGGESTIONS}
+                                warning={
+                                    postTooFast
+                                        ? "⚠ Publish interval is shorter than generate interval — posts may run out before new ones are ready."
+                                        : undefined
+                                }
+                            />
 
-                            <TextFieldRoot className="flex flex-col gap-1.5">
+                            {/* Tone */}
+                            <TextFieldRoot className="flex flex-col gap-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">AI Voice Tone</Label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {SUGGESTED_TONES.map((t) => (
@@ -206,7 +289,7 @@ export default function AIPage() {
                                         variant="ghost"
                                         className="h-7 px-3 text-[10px] font-black uppercase tracking-widest border border-divider rounded-lg hover:bg-primary/10 hover:border-primary/50"
                                         onPress={() => {
-                                            const current = topicsStr.split(",").map(t => t.trim()).filter(Boolean);
+                                            const current = topicsStr.split(",").map((t) => t.trim()).filter(Boolean);
                                             if (!current.includes(topic)) {
                                                 setTopicsStr([...current, topic].join(", "));
                                             }
@@ -221,7 +304,7 @@ export default function AIPage() {
                         <Button
                             variant="primary"
                             className="w-full font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20 mt-4"
-                            onPress={handleSavePreferences}
+                            onPress={handleSave}
                             isDisabled={isSaving}
                         >
                             {isSaving ? (

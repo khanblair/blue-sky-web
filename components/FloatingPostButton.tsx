@@ -7,8 +7,8 @@ import {
     Label,
     TextFieldRoot,
 } from "@heroui/react";
-import { Plus, Send, Zap, Loader2, Sparkles, X } from "lucide-react";
-import { useQuery, useAction } from "convex/react";
+import { Plus, Send, Loader2, Sparkles, X, BookmarkPlus, Check } from "lucide-react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +18,8 @@ export function FloatingPostButton() {
     const [content, setContent] = useState("");
     const [isGenerating, setIsGenerating] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [savedFeedback, setSavedFeedback] = useState(false);
 
     const user = useQuery(api.users.getCurrentUser);
     const preferences = useQuery(api.users.getPreferences);
@@ -25,16 +27,17 @@ export function FloatingPostButton() {
     const postNow = useAction(api.posting?.postNow);
     // @ts-ignore
     const generatePost = useAction(api.openrouter?.generatePostPublic);
+    const saveAsPending = useMutation(api.posting.savePostAsPending);
 
     // Prevent scrolling when modal is open
     useEffect(() => {
         if (isOpen) {
-            document.body.style.overflow = 'hidden';
+            document.body.style.overflow = "hidden";
         } else {
-            document.body.style.overflow = 'unset';
+            document.body.style.overflow = "unset";
         }
         return () => {
-            document.body.style.overflow = 'unset';
+            document.body.style.overflow = "unset";
         };
     }, [isOpen]);
 
@@ -73,6 +76,26 @@ export function FloatingPostButton() {
         }
     };
 
+    const handleSaveAsPending = async () => {
+        if (!content.trim()) return;
+        setIsSaving(true);
+        try {
+            await saveAsPending({ content });
+            setSavedFeedback(true);
+            setContent("");
+            setTimeout(() => {
+                setSavedFeedback(false);
+                setIsOpen(false);
+            }, 1200);
+        } catch (error) {
+            alert("Failed to save: " + (error instanceof Error ? error.message : String(error)));
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const hasContent = content.trim().length > 0;
+
     return (
         <>
             <div className="fixed bottom-8 right-8 z-[100] group">
@@ -85,8 +108,6 @@ export function FloatingPostButton() {
                 >
                     <Plus size={32} strokeWidth={3} className="text-white" />
                 </Button>
-
-                {/* Tooltip-like label */}
                 <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-2 bg-background border border-divider rounded-lg text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
                     Quick Post
                 </div>
@@ -104,7 +125,7 @@ export function FloatingPostButton() {
                             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         />
 
-                        {/* Modal Content */}
+                        {/* Modal */}
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -131,7 +152,7 @@ export function FloatingPostButton() {
                                 </div>
                             </div>
 
-                            <div className="px-8 pb-8 flex flex-col gap-6">
+                            <div className="px-8 pb-8 flex flex-col gap-4">
                                 <TextFieldRoot className="flex flex-col gap-2">
                                     <div className="flex justify-between items-end">
                                         <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Post Content</Label>
@@ -148,39 +169,74 @@ export function FloatingPostButton() {
                                     />
                                 </TextFieldRoot>
 
-                                <div className="flex gap-3">
-                                    <Button
-                                        variant="outline"
-                                        className="h-12 font-black uppercase tracking-widest text-xs gap-2 border-white/5 hover:bg-white/5 flex-1"
-                                        onPress={handleGenerate}
-                                        isDisabled={isGenerating || !preferences}
-                                    >
-                                        {isGenerating ? (
-                                            <Loader2 className="animate-spin" size={16} />
-                                        ) : (
-                                            <Sparkles className="text-blue-500" size={16} />
-                                        )}
-                                        AI Generate
-                                    </Button>
-                                    <Button
-                                        variant="primary"
-                                        className="font-black uppercase tracking-widest text-xs h-12 flex-[2] bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20"
-                                        onPress={handlePost}
-                                        isDisabled={isPosting || !content.trim() || content.length > 300}
-                                    >
-                                        {isPosting ? (
-                                            <Loader2 className="animate-spin" size={16} />
-                                        ) : (
-                                            <>
-                                                <Send size={16} className="mr-2" />
-                                                Post Now
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
+                                {/* Generate row */}
+                                <Button
+                                    variant="outline"
+                                    className="h-11 font-black uppercase tracking-widest text-xs gap-2 border-white/5 hover:bg-white/5 w-full"
+                                    onPress={handleGenerate}
+                                    isDisabled={isGenerating || !preferences}
+                                >
+                                    {isGenerating ? (
+                                        <Loader2 className="animate-spin" size={16} />
+                                    ) : (
+                                        <Sparkles className="text-blue-500" size={16} />
+                                    )}
+                                    {isGenerating ? "Generating..." : "AI Generate"}
+                                </Button>
+
+                                {/* Action row — only shown when there's content */}
+                                <AnimatePresence>
+                                    {hasContent && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="flex gap-3 overflow-hidden"
+                                        >
+                                            {/* Save as Pending */}
+                                            <Button
+                                                variant="outline"
+                                                className="h-12 font-black uppercase tracking-widest text-xs gap-2 border-white/10 hover:bg-white/5 flex-1 text-zinc-300"
+                                                onPress={handleSaveAsPending}
+                                                isDisabled={isSaving || savedFeedback}
+                                            >
+                                                {savedFeedback ? (
+                                                    <>
+                                                        <Check size={15} className="text-success" />
+                                                        Saved!
+                                                    </>
+                                                ) : isSaving ? (
+                                                    <Loader2 className="animate-spin" size={15} />
+                                                ) : (
+                                                    <>
+                                                        <BookmarkPlus size={15} className="text-warning" />
+                                                        Save as Pending
+                                                    </>
+                                                )}
+                                            </Button>
+
+                                            {/* Post Now */}
+                                            <Button
+                                                variant="primary"
+                                                className="font-black uppercase tracking-widest text-xs h-12 flex-[1.5] bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20"
+                                                onPress={handlePost}
+                                                isDisabled={isPosting || content.length > 300}
+                                            >
+                                                {isPosting ? (
+                                                    <Loader2 className="animate-spin" size={16} />
+                                                ) : (
+                                                    <>
+                                                        <Send size={15} className="mr-2" />
+                                                        Post Now
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
 
-                            <div className="bg-white/[0.02] p-6 border-t border-white/5 text-center mt-auto">
+                            <div className="bg-white/[0.02] p-5 border-t border-white/5 text-center mt-auto">
                                 <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-tight">
                                     Posts are delivered instantly via the AT Protocol
                                 </p>
@@ -192,4 +248,3 @@ export function FloatingPostButton() {
         </>
     );
 }
-

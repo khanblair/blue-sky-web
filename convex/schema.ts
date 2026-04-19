@@ -16,9 +16,20 @@ export default defineSchema({
         userId: v.id("users"),
         topics: v.array(v.string()),
         tone: v.string(),
-        frequency: v.number(), // in minutes or hours
+        frequency: v.number(),                        // legacy, kept for compat
+        generateIntervalHours: v.optional(v.number()), // generate a post every N hours
+        postIntervalHours: v.optional(v.number()),     // publish a post every N hours
         lastPostTime: v.optional(v.number()),
+        lastGenerateTime: v.optional(v.number()),
     }).index("by_userId", ["userId"]),
+
+    pendingPosts: defineTable({
+        userId: v.id("users"),
+        content: v.string(),
+        generatedAt: v.number(),
+        status: v.string(), // "pending" | "posted" | "failed"
+    }).index("by_userId", ["userId"])
+     .index("by_status", ["status"]),
 
     postHistory: defineTable({
         userId: v.id("users"),

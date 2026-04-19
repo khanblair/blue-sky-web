@@ -86,7 +86,7 @@ export const postToBluesky = internalAction({
             const accessJwt = authData.accessJwt;
 
             // 2. Post
-            const postResponse = await fetch("https://bsky.social/xrpc/app.bsky.feed.post", {
+            const postResponse = await fetch("https://bsky.social/xrpc/com.atproto.repo.createRecord", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${accessJwt}`,

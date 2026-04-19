@@ -36,7 +36,9 @@ export const createOrUpdateUser = mutation({
             userId,
             topics: [],
             tone: "professional",
-            frequency: 24, // Once a day
+            frequency: 24,
+            generateIntervalHours: 6,  // generate every 6 hours by default
+            postIntervalHours: 8,      // post every 8 hours by default
         });
 
         return userId;
@@ -60,6 +62,8 @@ export const updatePreferences = mutation({
         topics: v.array(v.string()),
         tone: v.string(),
         frequency: v.number(),
+        generateIntervalHours: v.optional(v.number()),
+        postIntervalHours: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -82,6 +86,8 @@ export const updatePreferences = mutation({
                 topics: args.topics,
                 tone: args.tone,
                 frequency: args.frequency,
+                generateIntervalHours: args.generateIntervalHours,
+                postIntervalHours: args.postIntervalHours,
             });
         }
     },
@@ -153,6 +159,8 @@ export const syncUser = mutation({
                 topics: [],
                 tone: "professional",
                 frequency: 24,
+                generateIntervalHours: 6,
+                postIntervalHours: 8,
             });
 
             return userId;
@@ -180,6 +188,8 @@ export const syncUserInternal = internalMutation({
                 topics: [],
                 tone: "professional",
                 frequency: 24,
+                generateIntervalHours: 6,
+                postIntervalHours: 8,
             });
         }
     },
