@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Providers } from "./providers";
+import { ClientProviders } from "./client-providers";
 import { Navbar } from "@/components/Navbar";
 import { FloatingPostButton } from "@/components/FloatingPostButton";
 
@@ -30,7 +30,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
-        <Providers>
+        <ClientProviders>
           <div className="relative flex flex-col h-screen">
             <Navbar />
             <main className="container mx-auto max-w-7xl pt-16 px-6 flex-grow">
@@ -41,7 +41,7 @@ export default function RootLayout({
             </footer>
             <FloatingPostButton />
           </div>
-        </Providers>
+        </ClientProviders>
       </body>
     </html>
   );
