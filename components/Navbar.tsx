@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { Cloud, LayoutDashboard, Settings, LogOut } from "lucide-react";
 import { AuthModal } from "./AuthModal";
+import { InstallPWA } from "./InstallPWA";
 
 export function Navbar() {
     const { user, isLoaded } = useUser();
@@ -60,6 +61,7 @@ export function Navbar() {
                 </nav>
 
                 <div className="flex items-center gap-4">
+                    <InstallPWA />
                     {!isLoaded ? null : user ? (
                         <DropdownRoot>
                             <Button variant="ghost" className="rounded-full w-10 h-10 p-0 overflow-hidden min-w-0 border-none bg-transparent hover:bg-default-100">
