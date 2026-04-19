@@ -4,8 +4,8 @@ const CACHE_NAME = 'bluesky-ai-v1';
 const PRECACHE_URLS = [
   '/',
   '/manifest.json',
-  '/icon-192.svg',
-  '/icon-512.svg',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 // Install — pre-cache shell assets
