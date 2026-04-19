@@ -106,7 +106,7 @@ export function InstallPWAPopup() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 16, scale: 0.95 }}
                     transition={{ type: "spring", damping: 24, stiffness: 300 }}
-                    className="fixed bottom-24 right-6 z-[200] w-72 bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+                    className="fixed bottom-6 right-6 z-[200] w-72 bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
                 >
                     {/* Glow */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[60px] rounded-full -mr-10 -mt-10 pointer-events-none" />
@@ -120,27 +120,27 @@ export function InstallPWAPopup() {
                     </button>
 
                     {!showManual ? (
-                        <div className="p-5 flex flex-col gap-4 relative z-10">
+                        <div className="p-5 pt-4 flex flex-col gap-4 relative z-10">
                             {/* Header */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 pr-6">
                                 <div className="w-10 h-10 rounded-xl bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center shrink-0">
                                     <Smartphone size={18} className="text-primary" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-black text-white">Install BlueSky AI</p>
-                                    <p className="text-[10px] text-zinc-500">Add to your home screen</p>
+                                    <p className="text-sm font-black text-white leading-tight">Install BlueSky AI</p>
+                                    <p className="text-[10px] text-zinc-500 mt-0.5">Add to your home screen</p>
                                 </div>
                             </div>
 
                             {/* Benefits */}
-                            <ul className="space-y-1.5">
+                            <ul className="space-y-1.5 bg-white/[0.03] rounded-xl px-3 py-2.5 border border-white/5">
                                 {[
                                     "Works offline",
                                     "Faster load times",
                                     "Native app experience",
                                 ].map((b) => (
                                     <li key={b} className="flex items-center gap-2 text-[11px] text-zinc-400">
-                                        <span className="w-1 h-1 rounded-full bg-primary shrink-0" />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                                         {b}
                                     </li>
                                 ))}
@@ -166,7 +166,7 @@ export function InstallPWAPopup() {
                         </div>
                     ) : (
                         <div className="p-5 flex flex-col gap-3 relative z-10">
-                            <p className="text-sm font-black text-white">Install manually</p>
+                            <p className="text-sm font-black text-white pr-6">Install manually</p>
                             {isIOS ? (
                                 <ol className="space-y-2 text-[11px] text-zinc-400 list-none">
                                     <li className="flex gap-2"><span className="text-primary font-black">1.</span> Tap the <span className="text-white font-bold">Share</span> button in Safari</li>
