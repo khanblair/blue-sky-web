@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
+import { FloatingPostButton } from "@/components/FloatingPostButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
             <footer className="w-full flex items-center justify-center py-8 text-default-400 text-sm border-t border-divider/50 mt-12">
               <span className="opacity-70">Powered by Convex, OpenRouter, and HeroUI</span>
             </footer>
+            <FloatingPostButton />
           </div>
         </Providers>
       </body>

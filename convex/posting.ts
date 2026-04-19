@@ -1,5 +1,52 @@
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { v } from "convex/values";
+
+// ... existing internal functions ...
+
+export const getPostHistory = query({
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return [];
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+
+        if (!user) return [];
+
+        return await ctx.db
+            .query("postHistory")
+            .withIndex("by_userId", (q) => q.eq("userId", user._id))
+            .order("desc")
+            .take(10);
+    },
+});
+
+export const getStats = query({
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return { totalPosts: 0 };
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+
+        if (!user) return { totalPosts: 0 };
+
+        const posts = await ctx.db
+            .query("postHistory")
+            .withIndex("by_userId", (q) => q.eq("userId", user._id))
+            .filter((q) => q.eq(q.field("status"), "success"))
+            .collect();
+
+        return {
+            totalPosts: posts.length,
+        };
+    },
+});
 
 export const processAllScheduledPosts = internalAction({
     handler: async (ctx) => {
@@ -13,7 +60,16 @@ export const processAllScheduledPosts = internalAction({
                     tone: user.preferences.tone,
                 });
 
+                if (!user || !user.isActive) {
+                    throw new Error("User not found or inactive.");
+                }
+
+                if (!user.handle || !user.appPassword) {
+                    throw new Error("Bluesky handle and app password are required.");
+                }
+
                 // 2. Post to Bluesky
+                // @ts-ignore
                 const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
                     handle: user.handle,
                     appPassword: user.appPassword,

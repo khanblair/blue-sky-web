@@ -10,6 +10,7 @@
 
 import type * as bluesky from "../bluesky.js";
 import type * as crons from "../crons.js";
+import type * as http from "../http.js";
 import type * as openrouter from "../openrouter.js";
 import type * as posting from "../posting.js";
 import type * as users from "../users.js";
@@ -23,6 +24,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   bluesky: typeof bluesky;
   crons: typeof crons;
+  http: typeof http;
   openrouter: typeof openrouter;
   posting: typeof posting;
   users: typeof users;

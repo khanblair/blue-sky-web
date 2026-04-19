@@ -12,13 +12,63 @@ import {
     Link,
 } from "@heroui/react";
 import { buttonVariants } from "@heroui/styles";
-import { Cloud, ArrowRight, ArrowLeft, ShieldCheck, Key, User } from "lucide-react";
+import { Cloud, ArrowRight, ArrowLeft, ShieldCheck, Key, User, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useMutation, useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useRouter } from "next/navigation";
 
 export default function OnboardingPage() {
+    const router = useRouter();
     const [step, setStep] = useState(1);
+    const [handle, setHandle] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const createUser = useMutation(api.users.createOrUpdateUser);
+    const syncProfile = useAction(api.bluesky.syncProfile);
+
+    const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        const selectionStart = e.target.selectionStart;
+
+        if (value && !value.includes(".") && !handle.includes(".")) {
+            const newHandle = value + ".bsky.social";
+            setHandle(newHandle);
+            setTimeout(() => {
+                e.target.setSelectionRange(selectionStart, selectionStart);
+            }, 0);
+        } else {
+            setHandle(value);
+        }
+    };
+
+    const handleConnect = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            // 1. Save credentials
+            await createUser({
+                handle,
+                appPassword: password,
+                isActive: true
+            });
+
+            // 2. Sync profile metadata
+            await syncProfile();
+
+            setStep(3);
+        } catch (err: any) {
+            console.error("Connection failed:", err);
+            setError(err.message || "Failed to connect to Bluesky. Please check your credentials.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <div className="max-w-xl mx-auto py-12">
+        <div className="max-w-xl mx-auto py-12 px-4">
             <div className="flex flex-col gap-4 mb-8">
                 <div className="flex justify-between items-center text-sm font-bold uppercase tracking-widest text-default-400">
                     <span>Step {step} of 3</span>
@@ -46,10 +96,12 @@ export default function OnboardingPage() {
                             <Label className="text-sm font-semibold">Bluesky Handle</Label>
                             <Input
                                 placeholder="name.bsky.social"
+                                value={handle}
+                                onChange={handleHandleChange}
                                 className="px-3 py-2 bg-default-100 rounded-lg text-sm border border-transparent focus:border-primary outline-none transition-colors"
                             />
                         </TextFieldRoot>
-                        <Button variant="primary" className="font-bold mt-4" onPress={() => setStep(2)}>
+                        <Button variant="primary" className="font-bold mt-4" onPress={() => setStep(2)} isDisabled={!handle}>
                             Continue
                             <ArrowRight size={18} className="ml-2" />
                         </Button>
@@ -79,21 +131,47 @@ export default function OnboardingPage() {
 
                         <TextFieldRoot className="flex flex-col gap-2">
                             <Label className="text-sm font-semibold">App Password</Label>
-                            <Input
-                                placeholder="xxxx-xxxx-xxxx-xxxx"
-                                type="password"
-                                className="px-3 py-2 bg-default-100 rounded-lg text-sm border border-transparent focus:border-primary outline-none transition-colors"
-                            />
+                            <div className="relative">
+                                <Input
+                                    placeholder="xxxx-xxxx-xxxx-xxxx"
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-3 py-2 bg-default-100 rounded-lg text-sm border border-transparent focus:border-primary outline-none transition-colors pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400 hover:text-default-600 transition-colors"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                         </TextFieldRoot>
+
+                        {error && (
+                            <div className="p-3 bg-danger/10 border border-danger/20 rounded-xl text-center">
+                                <p className="text-xs text-danger font-bold uppercase tracking-widest">{error}</p>
+                            </div>
+                        )}
 
                         <div className="flex gap-4 mt-4">
                             <Button variant="ghost" className="font-bold flex-1" onPress={() => setStep(1)}>
                                 <ArrowLeft size={18} className="mr-2" />
                                 Back
                             </Button>
-                            <Button variant="primary" className="font-bold flex-1" onPress={() => setStep(3)}>
-                                Secure Connect
-                                <ArrowRight size={18} className="ml-2" />
+                            <Button variant="primary" className="font-bold flex-1" onPress={handleConnect} isDisabled={isLoading || !password}>
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 size={18} className="mr-2 animate-spin" />
+                                        Connecting...
+                                    </>
+                                ) : (
+                                    <>
+                                        Secure Connect
+                                        <ArrowRight size={18} className="ml-2" />
+                                    </>
+                                )}
                             </Button>
                         </div>
                     </CardContent>
@@ -110,9 +188,13 @@ export default function OnboardingPage() {
                             <h1 className="text-4xl font-black tracking-tight">You're All Set!</h1>
                             <p className="text-default-500 max-w-xs mx-auto">Your account is connected and encrypted. Let's take you to the dashboard.</p>
                         </div>
-                        <Link href="/dashboard" className={buttonVariants({ variant: "primary", className: "font-bold px-12 shadow-lg shadow-primary/20" })}>
+                        <Button
+                            variant="primary"
+                            className="font-bold px-12 shadow-lg shadow-primary/20"
+                            onPress={() => router.push("/dashboard")}
+                        >
                             Go to Dashboard
-                        </Link>
+                        </Button>
                     </CardContent>
                 </CardRoot>
             )}
