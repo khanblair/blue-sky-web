@@ -23,7 +23,7 @@ export const generatePost = internalAction({
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "openai/gpt-3.5-turbo", // or a cheaper model like "mistralai/mistral-7b-instruct"
+                model: "google/gemini-2.5-flash-lite",
                 messages: [{ role: "user", content: prompt }],
             }),
         });

@@ -19,26 +19,33 @@ import {
     Send,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 
-/** Returns ms until the next interval fires, given the last fire time and interval in hours. */
-function msUntilNext(lastTime: number, intervalHours: number): number {
-    const intervalMs = intervalHours * 60 * 60 * 1000;
-    const elapsed = Date.now() - lastTime;
-    return Math.max(0, intervalMs - elapsed);
+function msUntilNext(lastTime: number | string, intervalHours: number): number {
+    const intervalMs = (Number(intervalHours) || 0) * 60 * 60 * 1000;
+    const parsedTime = new Date(lastTime).getTime();
+    const validTime = isNaN(parsedTime) ? 0 : parsedTime;
+    const elapsed = Date.now() - validTime;
+    const result = Math.max(0, intervalMs - elapsed);
+    return isNaN(result) ? 0 : result;
 }
 
 function useCountdown(ms: number) {
     const [remaining, setRemaining] = useState(ms);
+    const [prevMs, setPrevMs] = useState(ms);
+
+    if (!Object.is(ms, prevMs)) {
+        setPrevMs(ms);
+        setRemaining(ms);
+    }
 
     useEffect(() => {
-        setRemaining(ms);
         const id = setInterval(() => {
             setRemaining((prev) => Math.max(0, prev - 1000));
         }, 1000);
         return () => clearInterval(id);
-    }, [ms]);
+    }, []);
 
     const totalSec = Math.floor(remaining / 1000);
     return {
@@ -127,12 +134,15 @@ export default function SchedulePage() {
     const generateInterval = preferences?.generateIntervalHours ?? 6;
     const postInterval = preferences?.postIntervalHours ?? 8;
 
-    const generateMs = preferences
-        ? msUntilNext(preferences.lastGenerateTime ?? 0, generateInterval)
-        : 0;
-    const postMs = preferences
-        ? msUntilNext(preferences.lastPostTime ?? 0, postInterval)
-        : 0;
+    const generateMs = useMemo(() => {
+        if (!preferences) return 0;
+        return msUntilNext(preferences.lastGenerateTime ?? 0, generateInterval);
+    }, [preferences?.lastGenerateTime, generateInterval]);
+
+    const postMs = useMemo(() => {
+        if (!preferences) return 0;
+        return msUntilNext(preferences.lastPostTime ?? 0, postInterval);
+    }, [preferences?.lastPostTime, postInterval]);
 
     const generateCountdown = useCountdown(generateMs);
     const postCountdown = useCountdown(postMs);

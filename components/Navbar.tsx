@@ -15,11 +15,11 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const appNav = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Schedule",  href: "/schedule",  icon: Calendar },
-    { name: "Posts",     href: "/posts",     icon: FileText },
-    { name: "AI",        href: "/ai",        icon: Sparkles },
-    { name: "Profile",   href: "/profile",   icon: User },
-    { name: "Settings",  href: "/settings",  icon: Settings },
+    { name: "Schedule", href: "/schedule", icon: Calendar },
+    { name: "Posts", href: "/posts", icon: FileText },
+    { name: "AI", href: "/ai", icon: Sparkles },
+    { name: "Profile", href: "/profile", icon: User },
+    { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 function BodyPortal({ children }: { children: React.ReactNode }) {
@@ -79,17 +79,17 @@ export function Navbar() {
                     {!isLoaded ? (
                         <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
                     ) : user ? (
-                        /* Desktop user dropdown */
-                        <div className="relative hidden md:block">
+                        /* User dropdown */
+                        <div className="relative">
                             <button
                                 onClick={() => setUserMenuOpen((v) => !v)}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/5 transition-colors"
+                                className="flex items-center gap-2 px-1 md:px-3 py-1.5 rounded-xl hover:bg-white/5 transition-colors"
                             >
-                                <img src={user.imageUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
-                                <span className="text-sm font-bold text-white max-w-[120px] truncate hidden lg:inline">
+                                <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                <span className="text-sm font-bold text-white max-w-[120px] truncate hidden md:inline">
                                     {user.firstName || user.primaryEmailAddress?.emailAddress}
                                 </span>
-                                <ChevronDown size={14} className="text-zinc-500" />
+                                <ChevronDown size={14} className="text-zinc-500 hidden md:inline" />
                             </button>
                             <AnimatePresence>
                                 {userMenuOpen && (

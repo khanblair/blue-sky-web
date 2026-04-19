@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { MobileNav } from "@/components/Sidebar";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter, usePathname } from "next/navigation";
@@ -45,7 +44,7 @@ export default function FeaturesLayout({
     }
 
     return (
-        <div className="flex flex-col md:flex-row gap-10 pb-24 md:pb-0">
+        <div className="flex flex-col md:flex-row gap-10">
             <Sidebar className="w-full md:w-64 h-auto md:h-[calc(100vh-8rem)] sticky top-24 shrink-0 hidden md:flex" />
             <div className="flex-grow min-w-0">
                 {children}
