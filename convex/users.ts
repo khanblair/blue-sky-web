@@ -1,4 +1,4 @@
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 export const createOrUpdateUser = mutation({
@@ -65,6 +65,12 @@ export const updatePreferences = mutation({
         frequency: v.number(),
         generateIntervalHours: v.optional(v.number()),
         postIntervalHours: v.optional(v.number()),
+        telegramBotToken: v.optional(v.string()),
+        telegramChatId: v.optional(v.string()),
+        whatsappTargetNumber: v.optional(v.string()),
+        maytapiProductId: v.optional(v.string()),
+        maytapiPhoneId: v.optional(v.string()),
+        maytapiApiToken: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -90,6 +96,12 @@ export const updatePreferences = mutation({
                 frequency: args.frequency,
                 generateIntervalHours: args.generateIntervalHours,
                 postIntervalHours: args.postIntervalHours,
+                telegramBotToken: args.telegramBotToken,
+                telegramChatId: args.telegramChatId,
+                whatsappTargetNumber: args.whatsappTargetNumber,
+                maytapiProductId: args.maytapiProductId,
+                maytapiPhoneId: args.maytapiPhoneId,
+                maytapiApiToken: args.maytapiApiToken,
             });
         }
     },
@@ -111,6 +123,27 @@ export const getPreferences = query({
             .query("preferences")
             .withIndex("by_userId", (q) => q.eq("userId", user._id))
             .unique();
+    },
+});
+
+/**
+ * Returns the integration credentials currently configured as Convex
+ * environment variables. Used to pre-fill the Settings UI when the user
+ * hasn't overridden them with their own per-user values yet.
+ */
+export const getIntegrationDefaults = query({
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return null;
+
+        return {
+            telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+            telegramChatId: process.env.TELEGRAM_CHAT_ID ?? "",
+            whatsappTargetNumber: process.env.MAYTAPI_TARGET_NUMBER ?? "",
+            maytapiProductId: process.env.MAYTAPI_PRODUCT_ID ?? "",
+            maytapiPhoneId: process.env.MAYTAPI_PHONE_ID ?? "",
+            maytapiApiToken: process.env.MAYTAPI_API_TOKEN ?? "",
+        };
     },
 });
 
@@ -194,5 +227,15 @@ export const syncUserInternal = internalMutation({
                 postIntervalHours: 8,
             });
         }
+    },
+});
+
+export const getPreferencesByUserId = internalQuery({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("preferences")
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .unique();
     },
 });

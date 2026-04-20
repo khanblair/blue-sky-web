@@ -135,7 +135,7 @@ export default function OnboardingPage() {
                                 <li>Open <Link href="https://bsky.app" className="underline font-bold">Bluesky Settings</Link></li>
                                 <li>Go to <span className="font-bold">Privacy and Security</span></li>
                                 <li>Select <span className="font-bold">App Passwords</span></li>
-                                <li>Create one named "BlueSky AI"</li>
+                                <li>Create one named &ldquo;BlueSky AI&rdquo;</li>
                             </ol>
                         </div>
 
@@ -195,8 +195,8 @@ export default function OnboardingPage() {
                             <ShieldCheck size={48} className="text-success" />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <h1 className="text-4xl font-black tracking-tight">You're All Set!</h1>
-                            <p className="text-default-500 max-w-xs mx-auto">Your account is connected and encrypted. Let's take you to the dashboard.</p>
+                            <h1 className="text-4xl font-black tracking-tight">You&apos;re All Set!</h1>
+                            <p className="text-default-500 max-w-xs mx-auto">Your account is connected and encrypted. Let&apos;s take you to the dashboard.</p>
                         </div>
                         <Button
                             variant="primary"

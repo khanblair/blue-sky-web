@@ -147,6 +147,14 @@ export const retryFailedPost = action({
             status: "success",
         });
 
+        // Telegram Notification
+        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Post Retried Successfully*\n\n${record.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        });
+
+        // WhatsApp Notification
+        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Post Retried Successfully*\n\n${record.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        });
+
         return { success: true, uri: blueskyUri };
     },
 });
@@ -371,6 +379,14 @@ export const generatePendingPosts = internalAction({
                     content,
                 });
 
+                // Telegram Notification
+        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `📝 *New Post Generated*\n\n${content.substring(0, 200)}${content.length > 200 ? "..." : ""}\n\n_queued for ${user.handle}_`
+                });
+
+                // WhatsApp Notification
+        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `📝 *New Post Generated*\n\n${content.substring(0, 200)}${content.length > 200 ? "..." : ""}\n\n_queued for ${user.handle}_`
+                });
+
                 console.log(`Generated pending post for ${user.handle}`);
             } catch (error) {
                 console.error(`Failed to generate post for ${user.handle}:`, error);
@@ -413,6 +429,14 @@ export const publishPendingPosts = internalAction({
                     status: "success",
                 });
 
+                // Telegram Notification
+                await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully*\n\n${pending.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+                });
+
+                // WhatsApp Notification
+        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully*\n\n${pending.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+                });
+
                 console.log(`Published post for ${user.handle}: ${blueskyUri}`);
             } catch (error) {
                 console.error(`Failed to publish post for ${user.handle}:`, error);
@@ -427,6 +451,14 @@ export const publishPendingPosts = internalAction({
                     content: pending.content,
                     status: "failed",
                     error: String(error),
+                });
+
+                // Telegram Notification
+        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `⚠️ *Publishing Failed*\n\nUser: ${user.handle}\nError: ${String(error)}`
+                });
+
+                // WhatsApp Notification
+        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `⚠️ *Publishing Failed*\n\nUser: ${user.handle}\nError: ${String(error)}`
                 });
             }
         }
@@ -472,6 +504,14 @@ export const postPendingNow = action({
             status: "success",
         });
 
+        // Telegram Notification
+        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully (Manual)*\n\n${post.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        });
+
+        // WhatsApp Notification
+        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully (Manual)*\n\n${post.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        });
+
         return { success: true, uri: blueskyUri };
     },
 });
@@ -499,6 +539,15 @@ export const postNow = action({
                 content: args.text,
                 blueskyUri,
                 status: "success",
+            });
+
+            // Telegram Notification
+            const userForHandle = (await ctx.runQuery(api.users.getCurrentUser))!;
+            await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Manual Post Published*\n\n${args.text.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + userForHandle.handle + "/post/")})`
+            });
+
+            // WhatsApp Notification
+            await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Manual Post Published*\n\n${args.text.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + userForHandle.handle + "/post/")})`
             });
 
             return { success: true, uri: blueskyUri };

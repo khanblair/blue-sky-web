@@ -38,14 +38,24 @@ function useCountdown(lastTime: number | undefined, intervalHours: number) {
         return base + (intervalHours * 60 * 60 * 1000);
     }, [lastTime, intervalHours]);
 
-    const [remaining, setRemaining] = useState(0);
+    const [remaining, setRemaining] = useState(() =>
+        target ? Math.max(0, target - Date.now()) : 0
+    );
+
+    // Track previous target to avoid redundant setRemaining(0) calls
+    const prevTargetRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!target) {
-            setRemaining(0);
+            // Only update state if we actually need to clear it
+            if (prevTargetRef.current !== null) {
+                setRemaining(0);
+            }
+            prevTargetRef.current = null;
             return;
         }
 
+        prevTargetRef.current = target;
         const update = () => {
             setRemaining(Math.max(0, target - Date.now()));
         };
@@ -142,8 +152,12 @@ export default function SchedulePage() {
     const generateInterval = preferences?.generateIntervalHours ?? 6;
     const postInterval = preferences?.postIntervalHours ?? 8;
 
-    const generateCountdown = useCountdown(preferences?.lastGenerateTime, generateInterval);
-    const postCountdown = useCountdown(preferences?.lastPostTime, postInterval);
+    // Stabilise primitives: pass 0 while loading so hook deps don't flicker
+    const lastGenTime = preferences?.lastGenerateTime ?? 0;
+    const lastPostTime = preferences?.lastPostTime ?? 0;
+
+    const generateCountdown = useCountdown(lastGenTime || undefined, generateInterval);
+    const postCountdown = useCountdown(lastPostTime || undefined, postInterval);
 
     if (preferences === undefined || postHistory === undefined || pendingPosts === undefined) {
         return (

@@ -77,8 +77,8 @@ export function Navbar() {
                     {user && <Link href="/dashboard" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Dashboard</Link>}
                 </div>
 
-                {/* Right: auth */}
-                <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                {/* Right: auth — always visible, never shrinks */}
+                <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 ml-auto">
                     {!isLoaded ? (
                         <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
                     ) : user ? (

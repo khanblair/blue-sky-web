@@ -25,7 +25,10 @@ import {
     MessageSquare,
     Eye,
     EyeOff,
-    Loader2
+    Loader2,
+    MessageCircle,
+    Smartphone,
+    Send
 } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -33,6 +36,7 @@ import { api } from "@/convex/_generated/api";
 export default function SettingsPage() {
     const user = useQuery(api.users.getCurrentUser);
     const preferences = useQuery(api.users.getPreferences);
+    const integrationDefaults = useQuery(api.users.getIntegrationDefaults);
 
     // @ts-ignore
     const updateCredentials = useMutation(api.users.createOrUpdateUser);
@@ -52,6 +56,14 @@ export default function SettingsPage() {
     const [frequency, setFrequency] = useState(24);
     const [isActive, setIsActive] = useState(false);
 
+    // Integrations State
+    const [telegramBotToken, setTelegramBotToken] = useState("");
+    const [telegramChatId, setTelegramChatId] = useState("");
+    const [whatsappTargetNumber, setWhatsappTargetNumber] = useState("");
+    const [maytapiProductId, setMaytapiProductId] = useState("");
+    const [maytapiPhoneId, setMaytapiPhoneId] = useState("");
+    const [maytapiApiToken, setMaytapiApiToken] = useState("");
+
     useEffect(() => {
         if (user) {
             setHandle(user.handle || "");
@@ -60,8 +72,15 @@ export default function SettingsPage() {
         if (preferences) {
             setTone(preferences.tone);
             setFrequency(preferences.frequency);
+            // Prefer per-user overrides; fall back to globally-configured env var values
+            setTelegramBotToken(preferences.telegramBotToken || integrationDefaults?.telegramBotToken || "");
+            setTelegramChatId(preferences.telegramChatId || integrationDefaults?.telegramChatId || "");
+            setWhatsappTargetNumber(preferences.whatsappTargetNumber || integrationDefaults?.whatsappTargetNumber || "");
+            setMaytapiProductId(preferences.maytapiProductId || integrationDefaults?.maytapiProductId || "");
+            setMaytapiPhoneId(preferences.maytapiPhoneId || integrationDefaults?.maytapiPhoneId || "");
+            setMaytapiApiToken(preferences.maytapiApiToken || integrationDefaults?.maytapiApiToken || "");
         }
-    }, [user, preferences]);
+    }, [user, preferences, integrationDefaults]);
 
     const handleUpdateCredentials = async () => {
         setIsUpdatingCreds(true);
@@ -101,7 +120,13 @@ export default function SettingsPage() {
             await updatePrefs({
                 topics: preferences?.topics || [],
                 tone,
-                frequency
+                frequency,
+                telegramBotToken: telegramBotToken || undefined,
+                telegramChatId: telegramChatId || undefined,
+                whatsappTargetNumber: whatsappTargetNumber || undefined,
+                maytapiProductId: maytapiProductId || undefined,
+                maytapiPhoneId: maytapiPhoneId || undefined,
+                maytapiApiToken: maytapiApiToken || undefined,
             });
             alert("Preferences saved!");
         } catch (err: any) {
@@ -210,8 +235,114 @@ export default function SettingsPage() {
                             </div>
                         </CardContent>
                     </CardRoot>
+
                 </div>
             </div>
+
+            {/* Integrations — full-width below the grid */}
+            <CardRoot className="bg-surface border-divider border">
+                <CardHeader className="flex flex-col items-start gap-1 p-6">
+                    <div className="flex items-center gap-3">
+                        <MessageCircle className="text-primary" size={20} />
+                        <p className="font-black uppercase tracking-widest text-sm">Integrations</p>
+                    </div>
+                    <p className="text-xs text-default-500">Configure real-time alerts via Telegram and WhatsApp</p>
+                </CardHeader>
+                <div className="h-px bg-divider w-full" />
+                <CardContent className="p-6 space-y-8">
+
+                    {/* Telegram Section */}
+                    <div className="space-y-4">
+                        <p className="text-xs font-black tracking-widest uppercase text-white flex items-center gap-2">
+                            <Send size={14} className="text-blue-400" /> Telegram
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <TextFieldRoot className="flex flex-col gap-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Bot Token</Label>
+                                <Input
+                                    placeholder="123456:ABC-DEF1234ghIkl-zyx5c"
+                                    value={telegramBotToken}
+                                    onChange={(e) => setTelegramBotToken(e.target.value)}
+                                    className="bg-default-50 border-divider"
+                                />
+                            </TextFieldRoot>
+                            <TextFieldRoot className="flex flex-col gap-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Chat ID</Label>
+                                <Input
+                                    placeholder="-1001234567890"
+                                    value={telegramChatId}
+                                    onChange={(e) => setTelegramChatId(e.target.value)}
+                                    className="bg-default-50 border-divider"
+                                />
+                            </TextFieldRoot>
+                        </div>
+                    </div>
+
+                    <div className="h-px bg-divider w-full" />
+
+                    {/* WhatsApp Maytapi Section */}
+                    <div className="space-y-4">
+                        <p className="text-xs font-black tracking-widest uppercase text-white flex items-center gap-2">
+                            <Smartphone size={14} className="text-green-500" /> WhatsApp (Maytapi)
+                        </p>
+                        <TextFieldRoot className="flex flex-col gap-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Target Number</Label>
+                            <Input
+                                placeholder="Country code + number (e.g. 254742736501)"
+                                value={whatsappTargetNumber}
+                                onChange={(e) => setWhatsappTargetNumber(e.target.value)}
+                                className="bg-default-50 border-divider"
+                            />
+                        </TextFieldRoot>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <TextFieldRoot className="flex flex-col gap-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Product ID</Label>
+                                <Input
+                                    placeholder="0d0f0dd3-..."
+                                    value={maytapiProductId}
+                                    onChange={(e) => setMaytapiProductId(e.target.value)}
+                                    className="bg-default-50 border-divider"
+                                />
+                            </TextFieldRoot>
+                            <TextFieldRoot className="flex flex-col gap-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Phone ID</Label>
+                                <Input
+                                    placeholder="140393"
+                                    value={maytapiPhoneId}
+                                    onChange={(e) => setMaytapiPhoneId(e.target.value)}
+                                    className="bg-default-50 border-divider"
+                                />
+                            </TextFieldRoot>
+                            <TextFieldRoot className="flex flex-col gap-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">API Token</Label>
+                                <Input
+                                    type="password"
+                                    placeholder="ddc6fce9-..."
+                                    value={maytapiApiToken}
+                                    onChange={(e) => setMaytapiApiToken(e.target.value)}
+                                    className="bg-default-50 border-divider"
+                                />
+                            </TextFieldRoot>
+                        </div>
+                    </div>
+
+                    <Button
+                        variant="primary"
+                        className="w-full font-black uppercase tracking-widest text-xs h-11"
+                        onPress={handleSavePrefs}
+                        isDisabled={isSavingPrefs}
+                    >
+                        {isSavingPrefs ? (
+                            <>
+                                <Loader2 className="animate-spin mr-2" size={16} />
+                                Saving...
+                            </>
+                        ) : (
+                            "Save Integrations"
+                        )}
+                    </Button>
+                </CardContent>
+            </CardRoot>
         </div>
     );
 }

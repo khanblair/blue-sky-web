@@ -38,8 +38,8 @@ export default function GuidePage() {
                             <ol className="list-decimal list-inside space-y-1 opacity-80">
                                 <li>Open Bluesky Settings</li>
                                 <li>Go to App Passwords</li>
-                                <li>Click "Add App Password"</li>
-                                <li>Name it "BlueSky AI" and copy the code</li>
+                                <li>Click &ldquo;Add App Password&rdquo;</li>
+                                <li>Name it &ldquo;BlueSky AI&rdquo; and copy the code</li>
                             </ol>
                         </div>
                     </CardContent>

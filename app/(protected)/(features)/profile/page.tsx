@@ -33,7 +33,7 @@ export default function ProfilePage() {
 
                         {convexUser?.bskyDescription && (
                             <p className="text-center text-sm text-default-500 italic px-4">
-                                "{convexUser.bskyDescription}"
+                                {`"${convexUser.bskyDescription}"`}
                             </p>
                         )}
 

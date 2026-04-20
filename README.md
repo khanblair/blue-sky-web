@@ -1,36 +1,186 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌤️ BlueSky AI — Automated Social Media Agent
 
-## Getting Started
+> **AI-powered Bluesky posting automation with real-time Telegram & WhatsApp alerts.**
 
-First, run the development server:
+BlueSky AI is a full-stack web application that automates your Bluesky social media presence using AI-generated content. It handles post generation, scheduling, publishing, and sends you real-time notifications via Telegram and WhatsApp whenever automation activity occurs.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## ✨ Features
+
+- **AI Post Generation** — Generates on-brand posts using OpenRouter (Gemini 2.5 Flash Lite) based on your configured topics, tone, and hashtags
+- **Two-Stage Automation** — Separate cron jobs for generation and posting, each with configurable intervals
+- **Posting Schedule** — Live countdown timers showing exactly when the next generation and publish will occur
+- **Post Management** — View, retry, and manually trigger posts from a dedicated posts dashboard
+- **Telegram Alerts** — Real-time bot notifications for every automation event (generation, success, failure, retries)
+- **WhatsApp Alerts** — Maytapi-powered WhatsApp delivery for the same events, sent to your mobile
+- **Settings UI** — Configure all integration credentials (Bluesky, Telegram, WhatsApp/Maytapi) directly in the app
+- **PWA Support** — Installable progressive web app with offline capability
+- **Clerk Authentication** — Secure sign-in with social providers and email
+
+---
+
+## 🏗️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 15 (App Router), React, TypeScript |
+| **Styling** | Tailwind CSS, HeroUI component library |
+| **Backend / DB** | Convex (real-time database + serverless functions + cron jobs) |
+| **Auth** | Clerk |
+| **AI** | OpenRouter → Google Gemini 2.5 Flash Lite |
+| **Bluesky** | AT Protocol (`@atproto/api`) |
+| **WhatsApp** | Maytapi (hosted WhatsApp gateway, no server required) |
+| **Telegram** | Telegram Bot API |
+| **Animations** | Framer Motion |
+
+---
+
+## 📁 Project Structure
+
+```
+blue-sky-web/
+├── app/
+│   ├── (public)/                  # Landing, features, docs pages
+│   └── (protected)/
+│       └── (features)/
+│           ├── dashboard/          # Main control dashboard
+│           ├── schedule/           # Posting schedule + countdowns
+│           ├── posts/              # Post history & management
+│           ├── ai/                 # AI strategy configuration
+│           ├── profile/            # User profile
+│           └── settings/           # Credentials + integrations
+├── components/
+│   ├── Navbar.tsx                  # Responsive navbar with mobile drawer
+│   ├── Sidebar.tsx                 # Desktop sidebar navigation
+│   └── AuthModal.tsx               # Auth modal (sign-in / sign-up)
+├── convex/
+│   ├── schema.ts                   # Database schema
+│   ├── users.ts                    # User & preferences mutations/queries
+│   ├── posting.ts                  # Post generation, publishing, cron logic
+│   ├── bluesky.ts                  # AT Protocol integration
+│   ├── openrouter.ts               # AI content generation
+│   ├── telegram.ts                 # Telegram Bot API notifications
+│   ├── whatsapp.ts                 # Maytapi WhatsApp notifications
+│   └── crons.ts                    # Scheduled cron job definitions
+└── public/                         # PWA icons, manifest, service worker
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Getting Started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Prerequisites
 
-## Learn More
+- [Bun](https://bun.sh) ≥ 1.0 or Node.js ≥ 18
+- A [Convex](https://convex.dev) account
+- A [Clerk](https://clerk.com) account
+- A [Bluesky](https://bsky.app) account with an App Password
+- An [OpenRouter](https://openrouter.ai) account
+- *(Optional)* A [Maytapi](https://maytapi.com) account for WhatsApp
+- *(Optional)* A Telegram Bot (via [@BotFather](https://t.me/BotFather))
 
-To learn more about Next.js, take a look at the following resources:
+### 1. Clone & install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+git clone https://github.com/your-username/blue-sky-web.git
+cd blue-sky-web
+bun install
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 2. Configure environment variables
 
-## Deploy on Vercel
+Create a `.env.local` file in the project root:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```env
+# Convex
+NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+```
+
+### 3. Set Convex environment variables
+
+```bash
+npx convex env set OPENROUTER_API_KEY your_openrouter_key
+npx convex env set TELEGRAM_BOT_TOKEN your_bot_token
+npx convex env set TELEGRAM_CHAT_ID your_chat_id
+npx convex env set MAYTAPI_PRODUCT_ID your_product_id
+npx convex env set MAYTAPI_PHONE_ID your_phone_id
+npx convex env set MAYTAPI_API_TOKEN your_api_token
+npx convex env set MAYTAPI_TARGET_NUMBER 256742736501
+```
+
+> **Note:** Telegram and Maytapi credentials can also be configured per-user from the **Settings → Integrations** panel inside the app, overriding the global defaults.
+
+### 4. Start development
+
+```bash
+# Terminal 1 — Convex backend
+npx convex dev
+
+# Terminal 2 — Next.js frontend
+bun run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## ⚙️ Configuration
+
+### Bluesky Credentials
+Set your Bluesky handle and App Password from **Settings → Bluesky Connection**.  
+Generate an App Password at: `bsky.app → Settings → Privacy and Security → App Passwords`
+
+### AI Strategy
+Configure from **AI** → select your topics, tone (professional, casual, witty, etc.), hashtags, and posting intervals.
+
+### Notification Integrations
+
+#### Telegram
+1. Create a bot via [@BotFather](https://t.me/BotFather) and copy the token
+2. Send `/start` to your bot to initialise the chat
+3. Enter the Bot Token and Chat ID in **Settings → Integrations**
+
+#### WhatsApp (Maytapi)
+1. Register at [maytapi.com](https://maytapi.com) and create a phone slot
+2. Scan the QR code with your WhatsApp to link the number
+3. Enter your Product ID, Phone ID, API Token, and target number in **Settings → Integrations**
+
+---
+
+## 🔔 Notification Events
+
+Both Telegram and WhatsApp receive alerts for:
+
+| Event | Message |
+|---|---|
+| Post Generated | 📝 New post queued |
+| Post Published | 🚀 Post live with Bluesky link |
+| Post Failed | ❌ Error with details |
+| Manual Retry | 🔄 Retry triggered |
+| Manual Post Now | 📤 Immediate post published |
+
+---
+
+## 🛠️ Development
+
+```bash
+# Type check
+bun run build
+
+# Lint
+bun run lint
+
+# Deploy Convex functions
+npx convex deploy
+```
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE) for details.

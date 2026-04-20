@@ -22,6 +22,14 @@ export default defineSchema({
         postIntervalHours: v.optional(v.number()),     // publish a post every N hours
         lastPostTime: v.optional(v.number()),
         lastGenerateTime: v.optional(v.number()),
+
+        // Notification Targets & API Keys (Per-user)
+        telegramBotToken: v.optional(v.string()),
+        telegramChatId: v.optional(v.string()),
+        whatsappTargetNumber: v.optional(v.string()),
+        maytapiProductId: v.optional(v.string()),
+        maytapiPhoneId: v.optional(v.string()),
+        maytapiApiToken: v.optional(v.string()),
     }).index("by_userId", ["userId"]),
 
     pendingPosts: defineTable({
