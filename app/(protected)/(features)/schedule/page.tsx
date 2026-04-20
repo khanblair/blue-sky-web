@@ -132,9 +132,14 @@ function CountdownCard({
                         Every {intervalHours}h
                     </p>
                     {lastTime ? (
-                        <p className="text-[10px] text-default-600">
-                            Last: {format(lastTime, "MMM d, h:mm a")}
-                        </p>
+                        <div className="flex flex-col items-center">
+                            <p className="text-[10px] text-default-600">
+                                Last: {format(lastTime, "MMM d, h:mm a")}
+                            </p>
+                            <p className={`text-[11px] font-black ${color.replace("bg-", "text-").split("/")[0]} mt-1 uppercase tracking-tighter`}>
+                                Next: {format(new Date(lastTime).getTime() + (intervalHours * 3600000), "h:mm a")}
+                            </p>
+                        </div>
                     ) : (
                         <p className="text-[10px] text-default-600">Never run yet</p>
                     )}

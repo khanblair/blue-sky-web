@@ -15,8 +15,10 @@ export default defineSchema({
     preferences: defineTable({
         userId: v.id("users"),
         topics: v.array(v.string()),
+        subtopics: v.optional(v.array(v.string())), // Granular subtopics
         tags: v.optional(v.array(v.string())), // Add optional tags array
         tone: v.string(),
+        goal: v.optional(v.string()), // e.g. "educate", "entertain", "inspire"
         frequency: v.number(),                        // legacy, kept for compat
         generateIntervalHours: v.optional(v.number()), // generate a post every N hours
         postIntervalHours: v.optional(v.number()),     // publish a post every N hours

@@ -148,11 +148,13 @@ export const retryFailedPost = action({
         });
 
         // Telegram Notification
-        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Post Retried Successfully*\n\n${record.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        await ctx.runAction(internal.telegram.sendMessage, {
+            userId: user._id, text: `🚀 *Post Retried Successfully*\n\n${record.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
         });
 
         // WhatsApp Notification
-        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Post Retried Successfully*\n\n${record.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        await ctx.runAction(internal.whatsapp.sendMessage, {
+            userId: user._id, text: `🚀 *Post Retried Successfully*\n\n${record.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
         });
 
         return { success: true, uri: blueskyUri };
@@ -370,8 +372,10 @@ export const generatePendingPosts = internalAction({
             try {
                 const content = await ctx.runAction(internal.openrouter.generatePost, {
                     topics: user.preferences.topics,
+                    subtopics: user.preferences.subtopics, // Pass subtopics
                     tags: user.preferences.tags,
                     tone: user.preferences.tone,
+                    goal: user.preferences.goal, // Pass goal
                 });
 
                 await ctx.runMutation(internal.posting.savePendingPost, {
@@ -380,11 +384,13 @@ export const generatePendingPosts = internalAction({
                 });
 
                 // Telegram Notification
-        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `📝 *New Post Generated*\n\n${content.substring(0, 200)}${content.length > 200 ? "..." : ""}\n\n_queued for ${user.handle}_`
+                await ctx.runAction(internal.telegram.sendMessage, {
+                    userId: user._id, text: `📝 *New Post Generated*\n\n${content.substring(0, 200)}${content.length > 200 ? "..." : ""}\n\n_queued for ${user.handle}_`
                 });
 
                 // WhatsApp Notification
-        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `📝 *New Post Generated*\n\n${content.substring(0, 200)}${content.length > 200 ? "..." : ""}\n\n_queued for ${user.handle}_`
+                await ctx.runAction(internal.whatsapp.sendMessage, {
+                    userId: user._id, text: `📝 *New Post Generated*\n\n${content.substring(0, 200)}${content.length > 200 ? "..." : ""}\n\n_queued for ${user.handle}_`
                 });
 
                 console.log(`Generated pending post for ${user.handle}`);
@@ -430,11 +436,13 @@ export const publishPendingPosts = internalAction({
                 });
 
                 // Telegram Notification
-                await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully*\n\n${pending.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+                await ctx.runAction(internal.telegram.sendMessage, {
+                    userId: user._id, text: `🚀 *Post Published Successfully*\n\n${pending.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
                 });
 
                 // WhatsApp Notification
-        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully*\n\n${pending.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+                await ctx.runAction(internal.whatsapp.sendMessage, {
+                    userId: user._id, text: `🚀 *Post Published Successfully*\n\n${pending.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
                 });
 
                 console.log(`Published post for ${user.handle}: ${blueskyUri}`);
@@ -454,11 +462,13 @@ export const publishPendingPosts = internalAction({
                 });
 
                 // Telegram Notification
-        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `⚠️ *Publishing Failed*\n\nUser: ${user.handle}\nError: ${String(error)}`
+                await ctx.runAction(internal.telegram.sendMessage, {
+                    userId: user._id, text: `⚠️ *Publishing Failed*\n\nUser: ${user.handle}\nError: ${String(error)}`
                 });
 
                 // WhatsApp Notification
-        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `⚠️ *Publishing Failed*\n\nUser: ${user.handle}\nError: ${String(error)}`
+                await ctx.runAction(internal.whatsapp.sendMessage, {
+                    userId: user._id, text: `⚠️ *Publishing Failed*\n\nUser: ${user.handle}\nError: ${String(error)}`
                 });
             }
         }
@@ -505,11 +515,13 @@ export const postPendingNow = action({
         });
 
         // Telegram Notification
-        await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully (Manual)*\n\n${post.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        await ctx.runAction(internal.telegram.sendMessage, {
+            userId: user._id, text: `🚀 *Post Published Successfully (Manual)*\n\n${post.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
         });
 
         // WhatsApp Notification
-        await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Post Published Successfully (Manual)*\n\n${post.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
+        await ctx.runAction(internal.whatsapp.sendMessage, {
+            userId: user._id, text: `🚀 *Post Published Successfully (Manual)*\n\n${post.content.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + user.handle + "/post/")})`
         });
 
         return { success: true, uri: blueskyUri };
@@ -543,11 +555,13 @@ export const postNow = action({
 
             // Telegram Notification
             const userForHandle = (await ctx.runQuery(api.users.getCurrentUser))!;
-            await ctx.runAction(internal.telegram.sendMessage, { userId: user._id, text: `🚀 *Manual Post Published*\n\n${args.text.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + userForHandle.handle + "/post/")})`
+            await ctx.runAction(internal.telegram.sendMessage, {
+                userId: user._id, text: `🚀 *Manual Post Published*\n\n${args.text.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + userForHandle.handle + "/post/")})`
             });
 
             // WhatsApp Notification
-            await ctx.runAction(internal.whatsapp.sendMessage, { userId: user._id, text: `🚀 *Manual Post Published*\n\n${args.text.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + userForHandle.handle + "/post/")})`
+            await ctx.runAction(internal.whatsapp.sendMessage, {
+                userId: user._id, text: `🚀 *Manual Post Published*\n\n${args.text.substring(0, 150)}...\n\n[View on Bluesky](${blueskyUri.replace("at://", "https://bsky.app/profile/" + userForHandle.handle + "/post/")})`
             });
 
             return { success: true, uri: blueskyUri };
@@ -564,7 +578,13 @@ export const postNow = action({
 });
 
 export const generateAndPostNow = action({
-    args: { topics: v.array(v.string()), tags: v.optional(v.array(v.string())), tone: v.string() },
+    args: {
+        topics: v.array(v.string()),
+        subtopics: v.optional(v.array(v.string())), // Added subtopics
+        tags: v.optional(v.array(v.string())),
+        tone: v.string(),
+        goal: v.optional(v.string()), // Added goal
+    },
     handler: async (ctx, args): Promise<any> => {
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) throw new Error("Not authenticated");
@@ -574,8 +594,10 @@ export const generateAndPostNow = action({
 
         const content = await ctx.runAction(internal.openrouter.generatePost, {
             topics: args.topics,
+            subtopics: args.subtopics, // Pass subtopics
             tags: args.tags,
             tone: args.tone,
+            goal: args.goal, // Pass goal
         });
 
         if (!content) throw new Error("Failed to generate content");

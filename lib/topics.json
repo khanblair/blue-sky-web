@@ -1,0 +1,168 @@
+{
+    "topics": [
+        {
+            "id": "tech",
+            "label": "Technology",
+            "hashtags": [
+                "tech",
+                "buildinpublic",
+                "coding",
+                "software"
+            ],
+            "subtopics": [
+                {
+                    "id": "webdev",
+                    "label": "Web Development",
+                    "hashtags": [
+                        "webdev",
+                        "reactjs",
+                        "nextjs",
+                        "typescript"
+                    ]
+                },
+                {
+                    "id": "ai",
+                    "label": "Artificial Intelligence",
+                    "hashtags": [
+                        "AI",
+                        "ML",
+                        "LLM",
+                        "GenerativeAI"
+                    ]
+                },
+                {
+                    "id": "mobile",
+                    "label": "Mobile Apps",
+                    "hashtags": [
+                        "iosdev",
+                        "androiddev",
+                        "reactnative"
+                    ]
+                },
+                {
+                    "id": "cloud",
+                    "label": "Cloud Computing",
+                    "hashtags": [
+                        "aws",
+                        "serverless",
+                        "devops"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "philosophy",
+            "label": "Philosophy",
+            "hashtags": [
+                "philosophy",
+                "wisdom",
+                "mindset"
+            ],
+            "subtopics": [
+                {
+                    "id": "stoicism",
+                    "label": "Stoicism",
+                    "hashtags": [
+                        "stoic",
+                        "marcusaurelius",
+                        "resilience"
+                    ]
+                },
+                {
+                    "id": "existentialism",
+                    "label": "Existentialism",
+                    "hashtags": [
+                        "existence",
+                        "purpose",
+                        "meaning"
+                    ]
+                },
+                {
+                    "id": "ethics",
+                    "label": "Ethics",
+                    "hashtags": [
+                        "morality",
+                        "values",
+                        "growth"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "lifestyle",
+            "label": "Lifestyle",
+            "hashtags": [
+                "lifestyle",
+                "daily",
+                "vibe"
+            ],
+            "subtopics": [
+                {
+                    "id": "productivity",
+                    "label": "Productivity",
+                    "hashtags": [
+                        "focus",
+                        "deepwork",
+                        "workflow"
+                    ]
+                },
+                {
+                    "id": "health",
+                    "label": "Health & Solo",
+                    "hashtags": [
+                        "wellness",
+                        "longevity",
+                        "fitness"
+                    ]
+                },
+                {
+                    "id": "travel",
+                    "label": "Travel",
+                    "hashtags": [
+                        "nomad",
+                        "adventure",
+                        "explore"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "business",
+            "label": "Business & Startups",
+            "hashtags": [
+                "business",
+                "startup",
+                "entrepreneur"
+            ],
+            "subtopics": [
+                {
+                    "id": "saas",
+                    "label": "SaaS",
+                    "hashtags": [
+                        "saas",
+                        "indiehackers",
+                        "mrr"
+                    ]
+                },
+                {
+                    "id": "marketing",
+                    "label": "Marketing",
+                    "hashtags": [
+                        "growthhacking",
+                        "branding",
+                        "copywriting"
+                    ]
+                },
+                {
+                    "id": "investing",
+                    "label": "Investing",
+                    "hashtags": [
+                        "finance",
+                        "stocks",
+                        "crypto"
+                    ]
+                }
+            ]
+        }
+    ]
+}

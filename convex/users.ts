@@ -60,8 +60,10 @@ export const getCurrentUser = query({
 export const updatePreferences = mutation({
     args: {
         topics: v.array(v.string()),
+        subtopics: v.optional(v.array(v.string())),
         tags: v.optional(v.array(v.string())),
         tone: v.string(),
+        goal: v.optional(v.string()), // Added goal
         frequency: v.number(),
         generateIntervalHours: v.optional(v.number()),
         postIntervalHours: v.optional(v.number()),
@@ -91,8 +93,10 @@ export const updatePreferences = mutation({
         if (prefs) {
             await ctx.db.patch(prefs._id, {
                 topics: args.topics,
+                subtopics: args.subtopics,
                 tags: args.tags,
                 tone: args.tone,
+                goal: args.goal, // Added goal
                 frequency: args.frequency,
                 generateIntervalHours: args.generateIntervalHours,
                 postIntervalHours: args.postIntervalHours,
