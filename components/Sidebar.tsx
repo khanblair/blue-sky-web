@@ -14,11 +14,9 @@ import {
 
 const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Schedule",  href: "/schedule",  icon: Calendar },
-    { name: "Posts",     href: "/posts",     icon: FileText },
-    { name: "AI",        href: "/ai",        icon: Sparkles },
-    { name: "Profile",   href: "/profile",   icon: User },
-    { name: "Settings",  href: "/settings",  icon: Settings },
+    { name: "Schedule", href: "/schedule", icon: Calendar },
+    { name: "Posts", href: "/posts", icon: FileText },
+    { name: "AI", href: "/ai", icon: Sparkles },
 ];
 
 // ─── Desktop sidebar ────────────────────────────────────────────────────────
@@ -27,7 +25,7 @@ export function Sidebar({ className }: { className?: string }) {
 
     return (
         <aside className={cn("flex flex-col gap-2", className)}>
-            <div className="px-3 py-2">
+            <div className="px-3 pt-4">
                 <h2 className="mb-4 px-4 text-xs font-black uppercase tracking-widest text-zinc-500">
                     Feature Management
                 </h2>

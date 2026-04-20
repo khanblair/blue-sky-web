@@ -31,21 +31,29 @@ function msUntilNext(lastTime: number | string, intervalHours: number): number {
     return isNaN(result) ? 0 : result;
 }
 
-function useCountdown(ms: number) {
-    const [remaining, setRemaining] = useState(ms);
-    const [prevMs, setPrevMs] = useState(ms);
+function useCountdown(lastTime: number | undefined, intervalHours: number) {
+    const target = useMemo(() => {
+        if (!lastTime) return null;
+        const base = new Date(lastTime).getTime();
+        return base + (intervalHours * 60 * 60 * 1000);
+    }, [lastTime, intervalHours]);
 
-    if (!Object.is(ms, prevMs)) {
-        setPrevMs(ms);
-        setRemaining(ms);
-    }
+    const [remaining, setRemaining] = useState(0);
 
     useEffect(() => {
-        const id = setInterval(() => {
-            setRemaining((prev) => Math.max(0, prev - 1000));
-        }, 1000);
+        if (!target) {
+            setRemaining(0);
+            return;
+        }
+
+        const update = () => {
+            setRemaining(Math.max(0, target - Date.now()));
+        };
+
+        update();
+        const id = setInterval(update, 1000);
         return () => clearInterval(id);
-    }, []);
+    }, [target]);
 
     const totalSec = Math.floor(remaining / 1000);
     return {
@@ -134,18 +142,8 @@ export default function SchedulePage() {
     const generateInterval = preferences?.generateIntervalHours ?? 6;
     const postInterval = preferences?.postIntervalHours ?? 8;
 
-    const generateMs = useMemo(() => {
-        if (!preferences) return 0;
-        return msUntilNext(preferences.lastGenerateTime ?? 0, generateInterval);
-    }, [preferences?.lastGenerateTime, generateInterval]);
-
-    const postMs = useMemo(() => {
-        if (!preferences) return 0;
-        return msUntilNext(preferences.lastPostTime ?? 0, postInterval);
-    }, [preferences?.lastPostTime, postInterval]);
-
-    const generateCountdown = useCountdown(generateMs);
-    const postCountdown = useCountdown(postMs);
+    const generateCountdown = useCountdown(preferences?.lastGenerateTime, generateInterval);
+    const postCountdown = useCountdown(preferences?.lastPostTime, postInterval);
 
     if (preferences === undefined || postHistory === undefined || pendingPosts === undefined) {
         return (

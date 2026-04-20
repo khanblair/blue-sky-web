@@ -54,7 +54,8 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         {/* Capture beforeinstallprompt as early as possible — before React hydrates */}
-        <script dangerouslySetInnerHTML={{ __html: `
+        <script dangerouslySetInnerHTML={{
+          __html: `
           window.__pwaInstallPrompt = null;
           window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
@@ -68,9 +69,9 @@ export default function RootLayout({
       >
         <ServiceWorkerRegistration />
         <ClientProviders>
-          <div className="relative flex flex-col h-screen">
+          <div className="relative min-h-screen flex flex-col">
             <Navbar />
-            <main className="container mx-auto max-w-7xl pt-16 px-6 flex-grow">
+            <main className="container mx-auto max-w-7xl pt-8 md:pt-16 px-6 flex-grow">
               {children}
             </main>
             <footer className="w-full flex items-center justify-center py-8 text-default-400 text-sm border-t border-divider/50 mt-12">

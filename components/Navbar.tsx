@@ -13,11 +13,14 @@ import {
 import { AuthModal } from "./AuthModal";
 import { motion, AnimatePresence } from "framer-motion";
 
-const appNav = [
+const coreNav = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Schedule", href: "/schedule", icon: Calendar },
     { name: "Posts", href: "/posts", icon: FileText },
     { name: "AI", href: "/ai", icon: Sparkles },
+];
+
+const userNav = [
     { name: "Profile", href: "/profile", icon: User },
     { name: "Settings", href: "/settings", icon: Settings },
 ];
@@ -47,7 +50,7 @@ export function Navbar() {
     return (
         <>
             {/* ── Navbar ── */}
-            <nav className="border-b border-white/10 backdrop-blur-md h-16 flex items-center justify-between px-4 sticky top-0 z-[60] bg-zinc-950/90">
+            <nav className="border-b border-white/10 backdrop-blur-md h-16 md:h-24 flex items-center justify-between px-4 sticky top-0 z-[60] bg-zinc-950/90">
 
                 {/* Left: hamburger (mobile) + logo */}
                 <div className="flex items-center gap-3">
@@ -75,7 +78,7 @@ export function Navbar() {
                 </div>
 
                 {/* Right: auth */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
                     {!isLoaded ? (
                         <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
                     ) : user ? (
@@ -83,9 +86,9 @@ export function Navbar() {
                         <div className="relative">
                             <button
                                 onClick={() => setUserMenuOpen((v) => !v)}
-                                className="flex items-center gap-2 px-1 md:px-3 py-1.5 rounded-xl hover:bg-white/5 transition-colors"
+                                className="flex items-center gap-2 px-2 py-1.5 rounded-full md:rounded-xl hover:bg-white/10 transition-colors bg-white/10"
                             >
-                                <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                <img src={user.imageUrl} alt="Profile" className="w-8 h-8 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
                                 <span className="text-sm font-bold text-white max-w-[120px] truncate hidden md:inline">
                                     {user.firstName || user.primaryEmailAddress?.emailAddress}
                                 </span>
@@ -99,22 +102,32 @@ export function Navbar() {
                                             initial={{ opacity: 0, y: -4 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -4 }}
-                                            className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-20 overflow-hidden"
+                                            className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[70] overflow-hidden"
                                         >
-                                            <div className="px-4 py-3 border-b border-white/5">
+                                            <div className="px-4 py-3 border-b border-white/5 bg-black/20">
                                                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Signed in as</p>
                                                 <p className="text-sm font-bold text-white truncate">{user.primaryEmailAddress?.emailAddress}</p>
                                             </div>
-                                            {appNav.map((item) => (
-                                                <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
-                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors">
-                                                    <item.icon size={16} className="text-zinc-500 shrink-0" />
-                                                    {item.name}
-                                                </Link>
-                                            ))}
-                                            <div className="border-t border-white/5">
+
+                                            <div className="p-2 space-y-0.5 border-b border-white/5">
+                                                {userNav.map((item) => {
+                                                    const isActive = pathname === item.href;
+                                                    return (
+                                                        <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
+                                                            className={`flex items-center gap-3 px-3 py-2 text-sm font-bold rounded-xl transition-colors ${isActive
+                                                                ? "bg-primary/10 text-primary"
+                                                                : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                                                                }`}>
+                                                            <item.icon size={16} className={`shrink-0 ${isActive ? "text-primary" : "text-zinc-500"}`} />
+                                                            {item.name}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <div className="p-2">
                                                 <button onClick={() => signOut()}
-                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors w-full">
+                                                    className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-400 rounded-xl hover:bg-red-500/10 transition-colors w-full">
                                                     <LogOut size={16} /> Log Out
                                                 </button>
                                             </div>
@@ -124,9 +137,9 @@ export function Navbar() {
                             </AnimatePresence>
                         </div>
                     ) : (
-                        <div className="hidden md:flex items-center gap-3">
-                            <button onClick={openSignIn} className="text-sm font-black text-zinc-300 hover:text-white transition-colors">Login</button>
-                            <button onClick={openSignUp} className="px-4 h-9 rounded-xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-colors">Sign Up</button>
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <button onClick={openSignIn} className="text-xs md:text-sm font-black text-zinc-300 hover:text-white transition-colors">Login</button>
+                            <button onClick={openSignUp} className="px-3 md:px-4 h-8 md:h-9 rounded-lg md:rounded-xl bg-primary text-white text-[10px] md:text-sm font-black hover:bg-primary/90 transition-colors">Sign Up</button>
                         </div>
                     )}
                 </div>
@@ -183,7 +196,7 @@ export function Navbar() {
                                                     {user.primaryEmailAddress?.emailAddress}
                                                 </p>
                                             </div>
-                                            {appNav.map((item) => {
+                                            {coreNav.map((item) => {
                                                 const isActive = pathname === item.href;
                                                 return (
                                                     <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)}

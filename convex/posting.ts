@@ -362,6 +362,7 @@ export const generatePendingPosts = internalAction({
             try {
                 const content = await ctx.runAction(internal.openrouter.generatePost, {
                     topics: user.preferences.topics,
+                    tags: user.preferences.tags,
                     tone: user.preferences.tone,
                 });
 
@@ -514,7 +515,7 @@ export const postNow = action({
 });
 
 export const generateAndPostNow = action({
-    args: { topics: v.array(v.string()), tone: v.string() },
+    args: { topics: v.array(v.string()), tags: v.optional(v.array(v.string())), tone: v.string() },
     handler: async (ctx, args): Promise<any> => {
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) throw new Error("Not authenticated");
@@ -524,6 +525,7 @@ export const generateAndPostNow = action({
 
         const content = await ctx.runAction(internal.openrouter.generatePost, {
             topics: args.topics,
+            tags: args.tags,
             tone: args.tone,
         });
 

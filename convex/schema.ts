@@ -15,6 +15,7 @@ export default defineSchema({
     preferences: defineTable({
         userId: v.id("users"),
         topics: v.array(v.string()),
+        tags: v.optional(v.array(v.string())), // Add optional tags array
         tone: v.string(),
         frequency: v.number(),                        // legacy, kept for compat
         generateIntervalHours: v.optional(v.number()), // generate a post every N hours
@@ -29,7 +30,7 @@ export default defineSchema({
         generatedAt: v.number(),
         status: v.string(), // "pending" | "posted" | "failed"
     }).index("by_userId", ["userId"])
-     .index("by_status", ["status"]),
+        .index("by_status", ["status"]),
 
     postHistory: defineTable({
         userId: v.id("users"),

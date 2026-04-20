@@ -37,6 +37,7 @@ const POST_SUGGESTIONS = [
 
 const SUGGESTED_TONES = ["professional", "casual", "humorous", "intellectual", "enthusiastic"];
 const SUGGESTED_TOPICS = ["Tech", "Philosophy", "AI", "Space", "Stoicism"];
+const SUGGESTED_TAGS = ["buildinpublic", "AI", "tech", "webdev", "bluesky"];
 
 function IntervalPicker({
     label,
@@ -91,11 +92,10 @@ function IntervalPicker({
                         key={s.value}
                         type="button"
                         onClick={() => onChange(s.value)}
-                        className={`h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors ${
-                            value === s.value
+                        className={`h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors ${value === s.value
                                 ? "bg-primary border-primary text-white"
                                 : "bg-transparent border-divider text-default-400 hover:border-primary/50 hover:text-primary"
-                        }`}
+                            }`}
                     >
                         {s.label}
                     </button>
@@ -115,6 +115,7 @@ export default function AIPage() {
     const updateUser = useMutation(api.users.createOrUpdateUser);
 
     const [topicsStr, setTopicsStr] = useState("");
+    const [tagsStr, setTagsStr] = useState("");
     const [localPrefs, setLocalPrefs] = useState({
         tone: "professional",
         generateIntervalHours: 6,
@@ -130,6 +131,7 @@ export default function AIPage() {
                 postIntervalHours: preferences.postIntervalHours ?? 8,
             });
             setTopicsStr(preferences.topics.join(", "));
+            setTagsStr((preferences.tags ?? []).join(", "));
         }
     }, [preferences]);
 
@@ -138,6 +140,7 @@ export default function AIPage() {
         try {
             await updatePrefs({
                 topics: topicsStr.split(",").map((s) => s.trim()).filter(Boolean),
+                tags: tagsStr.split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean),
                 tone: localPrefs.tone,
                 frequency: localPrefs.generateIntervalHours, // keep legacy field in sync
                 generateIntervalHours: localPrefs.generateIntervalHours,
@@ -296,6 +299,35 @@ export default function AIPage() {
                                         }}
                                     >
                                         + {topic}
+                                    </Button>
+                                ))}
+                            </div>
+                        </TextFieldRoot>
+
+                        <TextFieldRoot className="flex flex-col gap-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Target Tags</Label>
+                            <Input
+                                placeholder="buildinpublic, AI, tech"
+                                value={tagsStr}
+                                onChange={(e) => setTagsStr(e.target.value)}
+                                className="bg-default-50 border-divider"
+                            />
+                            <p className="text-[10px] text-default-500 italic">Separate with commas (hashtags added automatically)</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {SUGGESTED_TAGS.map((tag) => (
+                                    <Button
+                                        key={tag}
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-3 text-[10px] font-black uppercase tracking-widest border border-divider rounded-lg hover:bg-primary/10 hover:border-primary/50"
+                                        onPress={() => {
+                                            const current = tagsStr.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
+                                            if (!current.includes(tag)) {
+                                                setTagsStr([...current, tag].join(", "));
+                                            }
+                                        }}
+                                    >
+                                        + #{tag}
                                     </Button>
                                 ))}
                             </div>
