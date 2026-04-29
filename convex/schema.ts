@@ -56,4 +56,18 @@ export default defineSchema({
         status: v.string(),
         timestamp: v.number(),
     }),
+
+    comments: defineTable({
+        userId: v.id("users"),
+        postHistoryId: v.optional(v.id("postHistory")),
+        blueskyUri: v.string(),
+        authorDid: v.string(),
+        authorHandle: v.optional(v.string()),
+        authorDisplayName: v.optional(v.string()),
+        authorAvatar: v.optional(v.string()),
+        content: v.string(),
+        timestamp: v.number(),
+        createdAt: v.number(),
+    }).index("by_postHistoryId", ["postHistoryId"])
+        .index("by_blueskyUri", ["blueskyUri"]),
 });

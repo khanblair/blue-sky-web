@@ -618,3 +618,117 @@ export const processAllScheduledPosts = internalAction({
         await ctx.runAction(internal.posting.publishPendingPosts);
     },
 });
+
+// ---------------------------------------------------------------------------
+// Comments
+// ---------------------------------------------------------------------------
+
+export const getCommentsForPost = query({
+    args: { postHistoryId: v.id("postHistory") },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return [];
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+
+        if (!user) return [];
+
+        return await ctx.db
+            .query("comments")
+            .withIndex("by_postHistoryId", (q) => q.eq("postHistoryId", args.postHistoryId))
+            .order("desc")
+            .collect();
+    },
+});
+
+export const syncCommentsForPost = action({
+    args: { postHistoryId: v.id("postHistory") },
+    handler: async (ctx, args): Promise<{ success: boolean; count: number }> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.runQuery(api.users.getCurrentUser);
+        if (!user) throw new Error("User record not found");
+        if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        const post = await ctx.runQuery(internal.posting.getPostHistoryRecord, {
+            postHistoryId: args.postHistoryId,
+        });
+        if (!post) throw new Error("Post record not found");
+        if (post.userId !== user._id) throw new Error("Unauthorized");
+        if (!post.blueskyUri) throw new Error("Post has no Bluesky URI");
+
+        // @ts-ignore
+        const comments = await ctx.runAction(internal.bluesky.fetchCommentsForPost, {
+            handle: user.handle,
+            appPassword: user.appPassword,
+            postUri: post.blueskyUri,
+        });
+
+        let count = 0;
+        for (const comment of comments) {
+            // Check if comment already exists
+            const existing = await ctx.runQuery(api.posting.getCommentByBlueskyUri, {
+                blueskyUri: comment.uri,
+            });
+
+            if (!existing) {
+                await ctx.runMutation(internal.posting.saveComment, {
+                    userId: user._id,
+                    postHistoryId: args.postHistoryId,
+                    blueskyUri: comment.uri,
+                    authorDid: comment.author.did,
+                    authorHandle: comment.author.handle,
+                    authorDisplayName: comment.author.displayName,
+                    authorAvatar: comment.author.avatar,
+                    content: comment.content,
+                    createdAt: comment.createdAt,
+                });
+                count++;
+            }
+        }
+
+        return { success: true, count };
+    },
+});
+
+export const getCommentByBlueskyUri = query({
+    args: { blueskyUri: v.string() },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("comments")
+            .withIndex("by_blueskyUri", (q) => q.eq("blueskyUri", args.blueskyUri))
+            .unique();
+    },
+});
+
+export const saveComment = internalMutation({
+    args: {
+        userId: v.id("users"),
+        postHistoryId: v.optional(v.id("postHistory")),
+        blueskyUri: v.string(),
+        authorDid: v.string(),
+        authorHandle: v.optional(v.string()),
+        authorDisplayName: v.optional(v.string()),
+        authorAvatar: v.optional(v.string()),
+        content: v.string(),
+        createdAt: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.insert("comments", {
+            userId: args.userId,
+            postHistoryId: args.postHistoryId,
+            blueskyUri: args.blueskyUri,
+            authorDid: args.authorDid,
+            authorHandle: args.authorHandle,
+            authorDisplayName: args.authorDisplayName,
+            authorAvatar: args.authorAvatar,
+            content: args.content,
+            timestamp: Date.now(),
+            createdAt: new Date(args.createdAt).getTime(),
+        });
+    },
+});

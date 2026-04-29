@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -19,6 +19,8 @@ import {
     AlertCircle,
     Calendar,
     FileText,
+    MessageSquare,
+    RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,6 +44,15 @@ type HistoryPost = {
     timestamp: number;
     blueskyUri?: string;
     error?: string;
+};
+
+type Comment = {
+    _id: string;
+    authorHandle?: string;
+    authorDisplayName?: string;
+    authorAvatar?: string;
+    content: string;
+    createdAt: number;
 };
 
 type SelectedPost =
@@ -96,6 +107,7 @@ function PostDialog({
     onDelete,
     onPostNow,
     onSaveEdit,
+    onSyncComments,
 }: {
     selected: SelectedPost;
     onClose: () => void;
@@ -103,18 +115,26 @@ function PostDialog({
     onDelete: (id: Id<"pendingPosts">) => Promise<void>;
     onPostNow: (id: Id<"pendingPosts">) => Promise<void>;
     onSaveEdit: (id: Id<"pendingPosts">, content: string) => Promise<void>;
+    onSyncComments: (id: Id<"postHistory">) => Promise<{ success: boolean; count: number }>;
 }) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(
         selected.kind === "pending" ? selected.post.content : "",
     );
     const [busy, setBusy] = useState<string | null>(null);
+    const [syncingComments, setSyncingComments] = useState(false);
 
     const isPending = selected.kind === "pending";
     const isHistory = selected.kind === "history";
     const post = selected.kind === "pending" ? selected.post : selected.post;
     const content = post.content;
     const status = post.status;
+
+    // Fetch comments for history posts
+    const comments = useQuery(
+        api.posting.getCommentsForPost,
+        isHistory ? { postHistoryId: selected.post._id as Id<"postHistory"> } : "skip"
+    );
 
     const run = async (key: string, fn: () => Promise<void>) => {
         setBusy(key);
@@ -125,6 +145,18 @@ function PostDialog({
             alert(e.message ?? String(e));
         } finally {
             setBusy(null);
+        }
+    };
+
+    const handleSyncComments = async () => {
+        if (!isHistory) return;
+        setSyncingComments(true);
+        try {
+            await onSyncComments(selected.post._id as Id<"postHistory">);
+        } catch (e: any) {
+            alert(e.message ?? String(e));
+        } finally {
+            setSyncingComments(false);
         }
     };
 
@@ -295,6 +327,72 @@ function PostDialog({
                             </p>
                         </div>
                     )}
+
+                    {/* Comments section for history posts */}
+                    {isHistory && (
+                        <div className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+                                    <MessageSquare size={11} /> Comments
+                                </p>
+                                {(selected as any).post.blueskyUri && (
+                                    <button
+                                        onClick={handleSyncComments}
+                                        disabled={syncingComments}
+                                        className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-40"
+                                    >
+                                        {syncingComments ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                                        Sync
+                                    </button>
+                                )}
+                            </div>
+                            <div className="bg-white/[0.03] rounded-xl border border-white/5 overflow-hidden">
+                                {comments && comments.length > 0 ? (
+                                    <div className="divide-y divide-white/5 max-h-[200px] overflow-y-auto">
+                                        {comments.map((comment) => (
+                                            <div key={comment._id} className="p-3 flex gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
+                                                    {comment.authorAvatar ? (
+                                                        <img
+                                                            src={comment.authorAvatar}
+                                                            alt={comment.authorDisplayName || comment.authorHandle}
+                                                            className="w-full h-full rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-[10px] font-black text-primary">
+                                                            {(comment.authorDisplayName || comment.authorHandle || "U").charAt(0).toUpperCase()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-[11px] font-black text-white">
+                                                            {comment.authorDisplayName || comment.authorHandle || "Anonymous"}
+                                                        </span>
+                                                        <span className="text-[9px] text-zinc-500">
+                                                            {format(comment.createdAt, "MMM d")}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-white/80 leading-relaxed">
+                                                        {comment.content}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 flex flex-col items-center justify-center gap-2">
+                                        <MessageSquare size={24} className="text-zinc-600" />
+                                        <p className="text-xs text-zinc-500">
+                                            {!(selected as any).post.blueskyUri
+                                                ? "Post not published to Bluesky yet"
+                                                : "No comments yet"}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer actions */}
@@ -381,6 +479,7 @@ export default function PostsPage() {
     const postPendingNow = useAction(api.posting.postPendingNow);
     const deletePost = useMutation(api.posting.deletePendingPost);
     const updatePost = useMutation(api.posting.updatePendingPost);
+    const syncComments = useAction(api.posting.syncCommentsForPost);
 
     const [filter, setFilter] = useState<FilterTab>("all");
     const [selected, setSelected] = useState<SelectedPost | null>(null);
@@ -597,6 +696,9 @@ export default function PostsPage() {
                         }}
                         onSaveEdit={async (id, content) => {
                             await updatePost({ pendingPostId: id, content });
+                        }}
+                        onSyncComments={async (id) => {
+                            return await syncComments({ postHistoryId: id });
                         }}
                     />
                 )}

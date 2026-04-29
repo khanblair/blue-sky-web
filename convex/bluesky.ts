@@ -116,3 +116,82 @@ export const postToBluesky = internalAction({
         }
     },
 });
+
+export const fetchCommentsForPost = internalAction({
+    args: {
+        handle: v.string(),
+        appPassword: v.string(),
+        postUri: v.string(),
+    },
+    handler: async (ctx, args): Promise<any[]> => {
+        try {
+            // 1. Authenticate
+            const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    identifier: args.handle,
+                    password: args.appPassword,
+                }),
+            });
+
+            if (!authResponse.ok) {
+                const error = await authResponse.json();
+                throw new Error(error.message || "Bluesky authentication failed");
+            }
+
+            const authData = await authResponse.json();
+            const accessJwt = authData.accessJwt;
+
+            // 2. Get post thread with replies
+            const threadResponse = await fetch(
+                `https://bsky.social/xrpc/app.bsky.feed.getPostThread?uri=${encodeURIComponent(args.postUri)}`,
+                {
+                    headers: { "Authorization": `Bearer ${accessJwt}` },
+                }
+            );
+
+            if (!threadResponse.ok) {
+                const error = await threadResponse.json();
+                throw new Error(error.message || "Failed to fetch post thread");
+            }
+
+            const threadData = await threadResponse.json();
+
+            // 3. Extract comments from the thread
+            const comments: any[] = [];
+
+            function extractReplies(thread: any) {
+                if (!thread) return;
+
+                if (thread.post && thread.post.replyCount > 0 && thread.replies) {
+                    for (const reply of thread.replies) {
+                        if (reply.post) {
+                            comments.push({
+                                uri: reply.post.uri,
+                                cid: reply.post.cid,
+                                author: {
+                                    did: reply.post.author.did,
+                                    handle: reply.post.author.handle,
+                                    displayName: reply.post.author.displayName,
+                                    avatar: reply.post.author.avatar,
+                                },
+                                content: reply.post.record?.text || "",
+                                createdAt: reply.post.record?.createdAt || "",
+                            });
+                        }
+                        // Recursively get nested replies
+                        extractReplies(reply);
+                    }
+                }
+            }
+
+            extractReplies(threadData.thread);
+
+            return comments;
+        } catch (error: any) {
+            console.error("Bluesky fetch comments error:", error);
+            throw new Error(error.message);
+        }
+    },
+});
