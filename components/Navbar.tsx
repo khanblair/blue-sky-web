@@ -34,7 +34,9 @@ const userNav = [
 
 function BodyPortal({ children }: { children: React.ReactNode }) {
     const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
+    useEffect(() => {
+        setTimeout(() => setMounted(true), 0);
+    }, []);
     if (!mounted) return null;
     return createPortal(children, document.body);
 }
@@ -49,7 +51,12 @@ export function Navbar() {
         open: false, mode: "signin",
     });
 
-    useEffect(() => { setMenuOpen(false); setUserMenuOpen(false); }, [pathname]);
+    useEffect(() => {
+        setTimeout(() => {
+            setMenuOpen(false);
+            setUserMenuOpen(false);
+        }, 0);
+    }, [pathname]);
 
     const openSignIn = () => setAuthModal({ open: true, mode: "signin" });
     const openSignUp = () => setAuthModal({ open: true, mode: "signup" });

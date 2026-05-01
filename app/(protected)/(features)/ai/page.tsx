@@ -62,7 +62,7 @@ function IntervalPicker({
 
     // Sync raw when the committed value changes externally (e.g. suggestion click)
     useEffect(() => {
-        setRaw(value.toString());
+        setTimeout(() => setRaw(value.toString()), 0);
     }, [value]);
 
     const commit = (str: string) => {
@@ -120,7 +120,7 @@ export default function AIPage() {
     const [tz, setTz] = useState("");
 
     useEffect(() => {
-        setTz(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        setTimeout(() => setTz(Intl.DateTimeFormat().resolvedOptions().timeZone), 0);
     }, []);
 
     const [topics, setTopics] = useState<string[]>([]);
@@ -143,10 +143,12 @@ export default function AIPage() {
     const [apiKey, setApiKey] = useState("");
     const [showApiKey, setShowApiKey] = useState(false);
     const [isSavingProvider, setIsSavingProvider] = useState(false);
-    const saveProviderConfig = useMutation(api.aiGeneration.saveProviderConfig as any);
+    const saveProviderConfig = useMutation(api.aiGeneration.saveProviderConfig);
 
     useEffect(() => {
-        if (preferences) {
+        if (!preferences) return;
+        
+        const timer = setTimeout(() => {
             setLocalPrefs({
                 tone: preferences.tone,
                 goal: preferences.goal ?? "educate",
@@ -156,7 +158,9 @@ export default function AIPage() {
             setTopics(preferences.topics || []);
             setSubtopics(preferences.subtopics || []);
             setTags(preferences.tags || []);
-        }
+        }, 0);
+
+        return () => clearTimeout(timer);
     }, [preferences]);
 
     const activeNicheKey = topics[0];
@@ -183,13 +187,13 @@ export default function AIPage() {
         }
     };
 
-    const handleToggleActive = async (e: any) => {
+    const handleToggleActive = async (isSelected: boolean) => {
         if (!user) return;
         try {
             await updateUser({
                 handle: user.handle || "",
                 appPassword: user.appPassword || "",
-                isActive: e.target.checked,
+                isActive: isSelected,
             });
         } catch {
             alert("Failed to toggle system status");
@@ -410,8 +414,9 @@ export default function AIPage() {
                                                 isActive: true,
                                             });
                                             alert("AI provider configuration saved!");
-                                        } catch (err: any) {
-                                            alert(err.message || "Failed to save provider config");
+                                        } catch (err: unknown) {
+                                            const message = err instanceof Error ? err.message : String(err);
+                                            alert(message || "Failed to save provider config");
                                         } finally {
                                             setIsSavingProvider(false);
                                         }

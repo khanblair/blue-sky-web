@@ -23,9 +23,7 @@ export function FloatingPostButton() {
 
     const user = useQuery(api.users.getCurrentUser);
     const preferences = useQuery(api.users.getPreferences);
-    // @ts-ignore
     const postNow = useAction(api.posting?.postNow);
-    // @ts-ignore
     const generatePost = useAction(api.openrouter?.generatePostPublic);
     const saveAsPending = useMutation(api.posting.savePostAsPending);
 

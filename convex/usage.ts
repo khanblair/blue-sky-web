@@ -1,9 +1,10 @@
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery, MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { PLAN_LIMITS, type PlanId } from "./planLimits";
+import { Id } from "./_generated/dataModel";
 
 export const getCurrentUsage = query({
-    handler: async (ctx) => {
+    handler: async (ctx: QueryCtx) => {
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) return null;
 
@@ -26,42 +27,42 @@ export const getCurrentUsage = query({
 
 export const incrementAiGeneration = internalMutation({
     args: { userId: v.id("users") },
-    handler: async (ctx, args) => {
+    handler: async (ctx: MutationCtx, args) => {
         await incrementUsage(ctx, args.userId, "aiGenerationsUsed");
     },
 });
 
 export const incrementPostGenerated = internalMutation({
     args: { userId: v.id("users") },
-    handler: async (ctx, args) => {
+    handler: async (ctx: MutationCtx, args) => {
         await incrementUsage(ctx, args.userId, "postsGenerated");
     },
 });
 
 export const incrementPostPublished = internalMutation({
     args: { userId: v.id("users") },
-    handler: async (ctx, args) => {
+    handler: async (ctx: MutationCtx, args) => {
         await incrementUsage(ctx, args.userId, "postsPublished");
     },
 });
 
 async function incrementUsage(
-    ctx: any,
-    userId: any,
+    ctx: MutationCtx,
+    userId: Id<"users">,
     field: "postsGenerated" | "postsPublished" | "aiGenerationsUsed"
 ) {
     const now = Date.now();
 
-    let usage = await ctx.db
+    const usage = await ctx.db
         .query("usageMetrics")
-        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
         .order("desc")
         .first();
 
     if (!usage || usage.periodEnd < now) {
         const sub = await ctx.db
             .query("subscriptions")
-            .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .order("desc")
             .first();
 
@@ -80,13 +81,13 @@ async function incrementUsage(
     }
 
     await ctx.db.patch(usage._id, {
-        [field]: (usage[field as keyof typeof usage] as number) + 1,
+        [field]: (usage[field] as number) + 1,
     });
 }
 
 export const getUsageForUser = internalQuery({
     args: { userId: v.id("users") },
-    handler: async (ctx, args) => {
+    handler: async (ctx: QueryCtx, args) => {
         const now = Date.now();
 
         const usage = await ctx.db
@@ -118,12 +119,12 @@ export const checkLimit = internalQuery({
         userId: v.id("users"),
         action: v.string(),
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx: QueryCtx, args) => {
         const now = Date.now();
 
         const sub = await ctx.db
             .query("subscriptions")
-            .withIndex("by_userId", (q: any) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
             .order("desc")
             .first();
 
@@ -133,7 +134,7 @@ export const checkLimit = internalQuery({
 
         const usageRecord = await ctx.db
             .query("usageMetrics")
-            .withIndex("by_userId", (q: any) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
             .order("desc")
             .first();
 
@@ -171,6 +172,6 @@ export const checkLimit = internalQuery({
             };
         }
 
-        return { allowed: true, plan, limits: planLimits, usage: currentUsage, remaining: Infinity as any, message: "OK" };
+        return { allowed: true, plan, limits: planLimits, usage: currentUsage, remaining: Infinity, message: "OK" };
     },
 });

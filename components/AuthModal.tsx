@@ -21,7 +21,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "signin" }: AuthModal
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-            setMode(initialMode); // Reset mode when opened
+            setTimeout(() => setMode(initialMode), 0); // Reset mode when opened
         } else {
             document.body.style.overflow = 'unset';
         }

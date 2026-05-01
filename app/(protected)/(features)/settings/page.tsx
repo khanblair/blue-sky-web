@@ -38,9 +38,7 @@ export default function SettingsPage() {
     const preferences = useQuery(api.users.getPreferences);
     const integrationDefaults = useQuery(api.users.getIntegrationDefaults);
 
-    // @ts-ignore
     const updateCredentials = useMutation(api.users.createOrUpdateUser);
-    // @ts-ignore
     const syncProfile = useAction(api.bluesky?.syncProfile);
     const updatePrefs = useMutation(api.users.updatePreferences);
 
@@ -65,21 +63,27 @@ export default function SettingsPage() {
     const [maytapiApiToken, setMaytapiApiToken] = useState("");
 
     useEffect(() => {
-        if (user) {
-            setHandle(user.handle || "");
-            setIsActive(user.isActive);
-        }
-        if (preferences) {
-            setTone(preferences.tone);
-            setFrequency(preferences.frequency);
-            // Prefer per-user overrides; fall back to globally-configured env var values
-            setTelegramBotToken(preferences.telegramBotToken || integrationDefaults?.telegramBotToken || "");
-            setTelegramChatId(preferences.telegramChatId || integrationDefaults?.telegramChatId || "");
-            setWhatsappTargetNumber(preferences.whatsappTargetNumber || integrationDefaults?.whatsappTargetNumber || "");
-            setMaytapiProductId(preferences.maytapiProductId || integrationDefaults?.maytapiProductId || "");
-            setMaytapiPhoneId(preferences.maytapiPhoneId || integrationDefaults?.maytapiPhoneId || "");
-            setMaytapiApiToken(preferences.maytapiApiToken || integrationDefaults?.maytapiApiToken || "");
-        }
+        if (!user && !preferences) return;
+        
+        const timer = setTimeout(() => {
+            if (user) {
+                setHandle(user.handle || "");
+                setIsActive(user.isActive);
+            }
+            if (preferences) {
+                setTone(preferences.tone);
+                setFrequency(preferences.frequency);
+                // Prefer per-user overrides; fall back to globally-configured env var values
+                setTelegramBotToken(preferences.telegramBotToken || integrationDefaults?.telegramBotToken || "");
+                setTelegramChatId(preferences.telegramChatId || integrationDefaults?.telegramChatId || "");
+                setWhatsappTargetNumber(preferences.whatsappTargetNumber || integrationDefaults?.whatsappTargetNumber || "");
+                setMaytapiProductId(preferences.maytapiProductId || integrationDefaults?.maytapiProductId || "");
+                setMaytapiPhoneId(preferences.maytapiPhoneId || integrationDefaults?.maytapiPhoneId || "");
+                setMaytapiApiToken(preferences.maytapiApiToken || integrationDefaults?.maytapiApiToken || "");
+            }
+        }, 0);
+        
+        return () => clearTimeout(timer);
     }, [user, preferences, integrationDefaults]);
 
     const handleUpdateCredentials = async () => {
@@ -93,8 +97,9 @@ export default function SettingsPage() {
             // Auto sync after credential update
             if (syncProfile) await syncProfile();
             alert("Credentials updated successfully!");
-        } catch (err: any) {
-            alert("Failed to update credentials: " + err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            alert("Failed to update credentials: " + message);
         } finally {
             setIsUpdatingCreds(false);
         }
@@ -107,8 +112,9 @@ export default function SettingsPage() {
                 await syncProfile();
                 alert("Profile synced with Bluesky!");
             }
-        } catch (err: any) {
-            alert("Sync failed: " + err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            alert("Sync failed: " + message);
         } finally {
             setIsSyncing(false);
         }
@@ -129,7 +135,7 @@ export default function SettingsPage() {
                 maytapiApiToken: maytapiApiToken || undefined,
             });
             alert("Preferences saved!");
-        } catch (err: any) {
+        } catch (err: unknown) {
             alert("Failed to save preferences");
         } finally {
             setIsSavingPrefs(false);

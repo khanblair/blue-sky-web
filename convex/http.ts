@@ -3,6 +3,14 @@ import { httpAction } from "./_generated/server";
 import { Webhook } from "svix";
 import { internal } from "./_generated/api";
 
+interface ClerkWebhookEvent {
+    type: "user.created" | "user.updated" | "user.deleted" | string;
+    data: {
+        id: string;
+        [key: string]: unknown;
+    };
+}
+
 const http = httpRouter();
 
 http.route({
@@ -20,7 +28,7 @@ http.route({
             };
 
             const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET || "");
-            const evt = wh.verify(payloadString, svixHeaders) as any;
+            const evt = wh.verify(payloadString, svixHeaders) as ClerkWebhookEvent;
 
             if (evt.type === "user.created") {
                 await ctx.runMutation(internal.users.syncUserInternal, {

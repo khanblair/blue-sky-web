@@ -16,11 +16,11 @@ export default function SSOCallbackPage() {
         const status = searchParams.get("status");
 
         if (errorCode === "oauth_access_denied" || errorCode === "oauth_token_revoked") {
-            setError("You cancelled the sign-in process.");
+            setTimeout(() => setError("You cancelled the sign-in process."), 0);
         } else if (status === "abandoned") {
-            setError("Sign-in was abandoned. Please try again.");
+            setTimeout(() => setError("Sign-in was abandoned. Please try again."), 0);
         } else if (errorCode) {
-            setError("Authentication failed. Please try again.");
+            setTimeout(() => setError("Authentication failed. Please try again."), 0);
         }
     }, [searchParams]);
 

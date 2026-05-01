@@ -64,9 +64,9 @@ export default function OnboardingPage() {
             console.log("Profile sync complete");
 
             setStep(3);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Connection failed with error:", err);
-            const errorMessage = err.message || "";
+            const errorMessage = err instanceof Error ? err.message : String(err);
             if (errorMessage.includes("Not authenticated")) {
                 setError("Convex could not verify your Clerk identity. Please ensure you have created a JWT Template named 'convex' in your Clerk Dashboard.");
             } else {

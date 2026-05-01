@@ -1,14 +1,25 @@
-import { action, internalAction, internalQuery, mutation, query } from "./_generated/server";
+import { action, internalAction, internalQuery, mutation, query, DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+
+interface Message {
+    role: "user" | "assistant" | "system";
+    content: string;
+}
+
+interface GenerationOptions {
+    temperature?: number;
+    maxTokens?: number;
+}
 
 export const PROVIDER_REGISTRY: Record<string, {
     name: string;
     baseUrl: string;
     models: string[];
     authHeader: (key: string) => Record<string, string>;
-    bodyTransform: (model: string, messages: any[], options?: any) => any;
-    responseParse: (data: any) => string;
+    bodyTransform: (model: string, messages: Message[], options?: GenerationOptions) => Record<string, unknown>;
+    responseParse: (data: unknown) => string;
 }> = {
     openrouter: {
         name: "OpenRouter",
@@ -32,7 +43,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             temperature: options?.temperature ?? 0.85,
             max_tokens: options?.maxTokens ?? 512,
         }),
-        responseParse: (data) => data.choices?.[0]?.message?.content?.trim() ?? "",
+        responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
     openai: {
         name: "OpenAI",
@@ -53,7 +64,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             temperature: options?.temperature ?? 0.85,
             max_tokens: options?.maxTokens ?? 512,
         }),
-        responseParse: (data) => data.choices?.[0]?.message?.content?.trim() ?? "",
+        responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
     anthropic: {
         name: "Anthropic",
@@ -72,7 +83,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             max_tokens: options?.maxTokens ?? 512,
             messages,
         }),
-        responseParse: (data) => data.content?.[0]?.text?.trim() ?? "",
+        responseParse: (data) => (data as { content?: Array<{ text?: string }> }).content?.[0]?.text?.trim() ?? "",
     },
     google: {
         name: "Google AI",
@@ -92,7 +103,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             temperature: options?.temperature ?? 0.85,
             max_tokens: options?.maxTokens ?? 512,
         }),
-        responseParse: (data) => data.choices?.[0]?.message?.content?.trim() ?? "",
+        responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
 };
 
@@ -100,12 +111,12 @@ export const DEFAULT_PROVIDER = "openrouter";
 export const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
 
 async function resolveAiConfig(
-    ctx: any,
-    userId: any
+    ctx: { db: DatabaseReader },
+    userId: Id<"users">
 ): Promise<{ provider: string; model: string; apiKey: string; temperature?: number; maxTokens?: number }> {
     const config = await ctx.db
         .query("aiProviderConfigs")
-        .withIndex("by_userId_active", (q: any) => q.eq("userId", userId).eq("isActive", true))
+        .withIndex("by_userId_active", (q) => q.eq("userId", userId).eq("isActive", true))
         .first();
 
     if (config && config.apiKey) {
@@ -125,6 +136,13 @@ async function resolveAiConfig(
     };
 }
 
+export const getActiveAiConfig = internalQuery({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        return await resolveAiConfig(ctx, args.userId);
+    },
+});
+
 export const generatePost = internalAction({
     args: {
         topics: v.array(v.string()),
@@ -136,7 +154,7 @@ export const generatePost = internalAction({
     },
     handler: async (ctx, args): Promise<string> => {
         const { provider, model, apiKey, temperature, maxTokens } = args.userId
-            ? await resolveAiConfig(ctx, args.userId)
+            ? await ctx.runQuery(internal.aiGeneration.getActiveAiConfig, { userId: args.userId })
             : { provider: DEFAULT_PROVIDER, model: DEFAULT_MODEL, apiKey: process.env.OPENROUTER_API_KEY ?? "", temperature: undefined, maxTokens: undefined };
 
         if (!apiKey) throw new Error(`No API key available for provider: ${provider}`);

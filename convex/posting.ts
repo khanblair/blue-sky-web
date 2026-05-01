@@ -37,7 +37,7 @@ export const getAllPendingPosts = query({
     handler: async (ctx) => {
         const identity = await ctx.auth.getUserIdentity();
 
-        const empty = { posts: [] as any[], postIntervalHours: 8, lastPostTime: 0 };
+        const empty = { posts: [], postIntervalHours: 8, lastPostTime: 0 };
         if (!identity) return empty;
 
         const user = await ctx.db
@@ -133,7 +133,6 @@ export const retryFailedPost = action({
         if (!record) throw new Error("Post record not found");
         if (record.userId !== user._id) throw new Error("Unauthorized");
 
-        // @ts-ignore
         const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
             handle: user.handle,
             appPassword: user.appPassword,
@@ -310,7 +309,14 @@ export const getUsersDueForPost = internalQuery({
 });
 
 export const logPostResult = internalMutation({
-    handler: async (ctx, args: any) => {
+    args: {
+        userId: v.id("users"),
+        content: v.string(),
+        blueskyUri: v.optional(v.string()),
+        status: v.string(),
+        error: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
         await ctx.db.insert("postHistory", {
             userId: args.userId,
             content: args.content,
@@ -424,7 +430,7 @@ export const publishPendingPosts = internalAction({
         const users = await ctx.runQuery(internal.posting.getUsersDueForPost);
 
         for (const user of users) {
-            const pending = (user as any).pendingPost;
+            const pending = user.pendingPost;
 
             try {
                 if (!user.isActive) throw new Error("User inactive");
@@ -440,7 +446,6 @@ export const publishPendingPosts = internalAction({
                     continue;
                 }
 
-                // @ts-ignore
                 const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
                     handle: user.handle,
                     appPassword: user.appPassword,
@@ -521,7 +526,6 @@ export const postPendingNow = action({
         if (!post) throw new Error("Pending post not found");
         if (post.userId !== user._id) throw new Error("Unauthorized");
 
-        // @ts-ignore
         const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
             handle: user.handle,
             appPassword: user.appPassword,
@@ -573,7 +577,6 @@ export const postNow = action({
         }
 
         try {
-            // @ts-ignore
             const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
                 handle: user.handle,
                 appPassword: user.appPassword,
@@ -621,7 +624,7 @@ export const generateAndPostNow = action({
         tone: v.string(),
         goal: v.optional(v.string()),
     },
-    handler: async (ctx, args): Promise<any> => {
+    handler: async (ctx, args): Promise<{ success: boolean; uri: string }> => {
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) throw new Error("Not authenticated");
 
@@ -647,7 +650,6 @@ export const generateAndPostNow = action({
 
         if (!content) throw new Error("Failed to generate content");
 
-        // @ts-ignore
         return await ctx.runAction(api.posting.postNow, { text: content });
     },
 });
@@ -706,7 +708,6 @@ export const syncCommentsForPost = action({
         if (post.userId !== user._id) throw new Error("Unauthorized");
         if (!post.blueskyUri) throw new Error("Post has no Bluesky URI");
 
-        // @ts-ignore
         const comments = await ctx.runAction(internal.bluesky.fetchCommentsForPost, {
             handle: user.handle,
             appPassword: user.appPassword,

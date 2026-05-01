@@ -85,8 +85,9 @@ export default function BillingPage() {
                 currency: wallet?.symbol ?? "USDC",
             });
             setStep("pending");
-        } catch (err: any) {
-            alert(err.message || "Failed to submit proof");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            alert(message || "Failed to submit proof");
         } finally {
             setIsSubmitting(false);
         }

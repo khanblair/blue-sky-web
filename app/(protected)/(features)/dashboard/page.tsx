@@ -56,13 +56,17 @@ export default function DashboardPage() {
     });
 
     useEffect(() => {
-        if (preferences) {
+        if (!preferences) return;
+        
+        const timer = setTimeout(() => {
             setTopicsStr(preferences.topics.join(", "));
             setLocalPrefs({
                 tone: preferences.tone,
                 frequency: preferences.frequency
             });
-        }
+        }, 0);
+
+        return () => clearTimeout(timer);
     }, [preferences]);
 
     const handleSavePreferences = async () => {
@@ -99,7 +103,6 @@ export default function DashboardPage() {
         setIsPosting(true);
         try {
             alert("Triggering AI broadcast based on current strategy...");
-            // @ts-ignore
             await postNow({ text: `AI Broadcast: Exploring ${topicsStr}` });
             alert("Posted successfully!");
         } catch (error) {
@@ -259,7 +262,7 @@ export default function DashboardPage() {
                                 <Cloud className="text-primary" />
                                 <div className="flex flex-col">
                                     <p className="text-md font-bold uppercase tracking-tight text-white">Content Strategy</p>
-                                    <p className="text-small text-default-500 uppercase tracking-tighter text-[9px]">Refine your AI's writing style</p>
+                                    <p className="text-small text-default-500 uppercase tracking-tighter text-[9px]">Refine your AI&apos;s writing style</p>
                                 </div>
                             </CardHeader>
                             <CardContent className="flex flex-col gap-6 pt-4">
@@ -329,7 +332,7 @@ export default function DashboardPage() {
                                 {(history || []).length === 0 ? (
                                     <p className="px-6 py-12 text-center text-default-500 font-bold text-sm">No post history yet</p>
                                 ) : (
-                                    (history || []).map((post: any) => (
+                                    (history || []).map((post) => (
                                         <div key={post._id} className="p-4 flex flex-col gap-2">
                                             <div className="flex items-center justify-between gap-2">
                                                 <Chip
@@ -379,7 +382,7 @@ export default function DashboardPage() {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            (history || []).map((post: any) => (
+                                            (history || []).map((post) => (
                                                 <tr key={post._id} className="border-b border-divider/40 last:border-0 hover:bg-default-50 transition-colors">
                                                     <td className="px-6 py-5">
                                                         <p className="line-clamp-1 text-sm font-bold tracking-tight text-white/90">{post.content || post.error || "No content"}</p>

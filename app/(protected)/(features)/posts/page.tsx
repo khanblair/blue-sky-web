@@ -21,6 +21,7 @@ import {
     FileText,
     MessageSquare,
     RefreshCw,
+    Edit3,
     Search,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -125,16 +126,17 @@ function PostDialog({
     const [busy, setBusy] = useState<string | null>(null);
     const [syncingComments, setSyncingComments] = useState(false);
 
-    const isPending = selected.kind === "pending";
-    const isHistory = selected.kind === "history";
-    const post = selected.kind === "pending" ? selected.post : selected.post;
-    const content = post.content;
-    const status = post.status;
+    const content = selected.post.content;
+    const status = selected.post.status;
+
+    const postTimestamp = selected.kind === "pending" 
+        ? selected.post.generatedAt 
+        : selected.post.timestamp;
 
     // Fetch comments for history posts
     const comments = useQuery(
         api.posting.getCommentsForPost,
-        isHistory ? { postHistoryId: selected.post._id as Id<"postHistory"> } : "skip"
+        selected.kind === "history" ? { postHistoryId: selected.post._id as Id<"postHistory"> } : "skip"
     );
 
     const run = async (key: string, fn: () => Promise<void>) => {
@@ -142,20 +144,22 @@ function PostDialog({
         try {
             await fn();
             onClose();
-        } catch (e: any) {
-            alert(e.message ?? String(e));
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : String(e);
+            alert(message);
         } finally {
             setBusy(null);
         }
     };
 
     const handleSyncComments = async () => {
-        if (!isHistory) return;
+        if (selected.kind !== "history") return;
         setSyncingComments(true);
         try {
             await onSyncComments(selected.post._id as Id<"postHistory">);
-        } catch (e: any) {
-            alert(e.message ?? String(e));
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : String(e);
+            alert(message);
         } finally {
             setSyncingComments(false);
         }
@@ -221,7 +225,7 @@ function PostDialog({
                         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
                             <FileText size={11} /> Content
                         </p>
-                        {editing && isPending ? (
+                        {editing && selected.kind === "pending" ? (
                             <div className="flex flex-col gap-2">
                                 <textarea
                                     value={draft}
@@ -267,46 +271,36 @@ function PostDialog({
                         <div className="bg-white/[0.03] rounded-xl p-3 border border-white/5">
                             <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1 mb-1">
                                 <Calendar size={9} />
-                                {isPending ? "Generated" : "Posted"}
+                                {selected.kind === "pending" ? "Generated" : "Posted"}
                             </p>
                             <p className="text-xs font-black text-white">
-                                {format(
-                                    isPending
-                                        ? (selected as any).post.generatedAt
-                                        : (selected as any).post.timestamp,
-                                    "MMM d, yyyy"
-                                )}
+                                {format(postTimestamp, "MMM d, yyyy")}
                             </p>
                             <p className="text-[10px] text-zinc-500">
-                                {format(
-                                    isPending
-                                        ? (selected as any).post.generatedAt
-                                        : (selected as any).post.timestamp,
-                                    "h:mm a"
-                                )}
+                                {format(postTimestamp, "h:mm a")}
                             </p>
                         </div>
 
                         {/* Est. publish / Bluesky link */}
-                        {isPending && (selected as any).estPublish ? (
+                        {selected.kind === "pending" && selected.estPublish ? (
                             <div className="bg-warning/5 rounded-xl p-3 border border-warning/10">
                                 <p className="text-[9px] font-black uppercase tracking-widest text-warning/70 flex items-center gap-1 mb-1">
                                     <Clock size={9} /> Est. Publish
                                 </p>
                                 <p className="text-xs font-black text-warning">
-                                    {format((selected as any).estPublish, "MMM d, yyyy")}
+                                    {format(selected.estPublish, "MMM d, yyyy")}
                                 </p>
                                 <p className="text-[10px] text-warning/70">
-                                    {format((selected as any).estPublish, "h:mm a")}
+                                    {format(selected.estPublish, "h:mm a")}
                                 </p>
                             </div>
-                        ) : isHistory && (selected as any).post.blueskyUri ? (
+                        ) : selected.kind === "history" && selected.post.blueskyUri ? (
                             <div className="bg-white/[0.03] rounded-xl p-3 border border-white/5 flex flex-col justify-between">
                                 <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1">
                                     Bluesky
                                 </p>
                                 <a
-                                    href={bskyPostUrl((selected as any).post.blueskyUri)}
+                                    href={bskyPostUrl(selected.post.blueskyUri)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-[10px] font-black text-primary hover:underline flex items-center gap-1"
@@ -318,84 +312,65 @@ function PostDialog({
                     </div>
 
                     {/* Error detail for failed */}
-                    {isHistory && status === "failed" && (selected as any).post.error && (
-                        <div className="bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-danger/70 mb-1 flex items-center gap-1">
-                                <AlertCircle size={9} /> Error
+                    {status === "failed" && selected.kind === "history" && selected.post.error && (
+                        <div className="bg-danger/5 rounded-2xl p-4 border border-danger/10">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-danger/70 flex items-center gap-1.5 mb-2">
+                                <AlertCircle size={12} /> Error Message
                             </p>
-                            <p className="text-xs text-danger/90 font-mono leading-relaxed">
-                                {(selected as any).post.error}
+                            <p className="text-xs text-danger leading-relaxed font-medium">
+                                {selected.post.error}
                             </p>
                         </div>
                     )}
 
-                    {/* Comments section for history posts */}
-                    {isHistory && (
-                        <div className="flex flex-col gap-3">
+                    {/* Comments Section */}
+                    {selected.kind === "history" && selected.post.status === "success" && (
+                        <div className="flex flex-col gap-4 mt-2">
                             <div className="flex items-center justify-between">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
-                                    <MessageSquare size={11} /> Comments
+                                    <MessageSquare size={11} /> Comments ({comments?.length ?? 0})
                                 </p>
-                                {(selected as any).post.blueskyUri && (
-                                    <button
-                                        onClick={handleSyncComments}
-                                        disabled={syncingComments}
-                                        className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-40"
-                                    >
-                                        {syncingComments ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                                        Sync
-                                    </button>
-                                )}
+                                <button
+                                    onClick={handleSyncComments}
+                                    disabled={syncingComments}
+                                    className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-40"
+                                >
+                                    {syncingComments ? <Loader2 size={10} className="animate-spin" /> : <RotateCcw size={10} />}
+                                    Sync Now
+                                </button>
                             </div>
-                            <div className="bg-white/[0.03] rounded-xl border border-white/5 overflow-hidden">
+
+                            <div className="flex flex-col gap-3">
                                 {comments === undefined ? (
-                                    <div className="p-12 flex flex-col items-center justify-center gap-3">
-                                        <Loader2 size={24} className="text-primary animate-spin" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                                            Fetching comments...
-                                        </p>
+                                    <div className="py-8 flex justify-center">
+                                        <Loader2 size={20} className="text-zinc-800 animate-spin" />
                                     </div>
-                                ) : comments.length > 0 ? (
-                                    <div className="divide-y divide-white/5 max-h-[200px] overflow-y-auto">
-                                        {comments.map((comment) => (
-                                            <div key={comment._id} className="p-3 flex gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-                                                    {comment.authorAvatar ? (
-                                                        <img
-                                                            src={comment.authorAvatar}
-                                                            alt={comment.authorDisplayName || comment.authorHandle}
-                                                            className="w-full h-full rounded-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-[10px] font-black text-primary">
-                                                            {(comment.authorDisplayName || comment.authorHandle || "U").charAt(0).toUpperCase()}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-[11px] font-black text-white">
-                                                            {comment.authorDisplayName || comment.authorHandle || "Anonymous"}
-                                                        </span>
-                                                        <span className="text-[9px] text-zinc-500">
-                                                            {format(comment.createdAt, "MMM d")}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-xs text-white/80 leading-relaxed">
-                                                        {comment.content}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                ) : comments.length === 0 ? (
+                                    <div className="py-8 text-center bg-white/[0.02] border border-dashed border-white/5 rounded-2xl">
+                                        <p className="text-[11px] text-zinc-600 font-bold">No comments found yet</p>
                                     </div>
                                 ) : (
-                                    <div className="p-6 flex flex-col items-center justify-center gap-2">
-                                        <MessageSquare size={24} className="text-zinc-600" />
-                                        <p className="text-xs text-zinc-500">
-                                            {!(selected as any).post.blueskyUri
-                                                ? "Post not published to Bluesky yet"
-                                                : "No comments yet"}
-                                        </p>
+                                    <div className="flex flex-col gap-3">
+                                        {comments.map((comment) => (
+                                            <div key={comment._id} className="bg-white/[0.03] border border-white/5 rounded-2xl p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        {comment.authorAvatar && (
+                                                            <img src={comment.authorAvatar} alt="" className="w-5 h-5 rounded-full ring-1 ring-white/10" />
+                                                        )}
+                                                        <span className="text-[10px] font-black text-white">
+                                                            {comment.authorDisplayName || comment.authorHandle}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[8px] font-bold text-zinc-500">
+                                                        {format(comment.createdAt, "MMM d")}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                                                    {comment.content}
+                                                </p>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -403,41 +378,34 @@ function PostDialog({
                     )}
                 </div>
 
-                {/* Footer actions */}
-                <div className="p-5 border-t border-white/5 flex gap-2">
+                {/* Footer Actions */}
+                <div className="p-7 pt-5 border-t border-white/5 bg-white/[0.02] flex gap-3">
                     {/* PENDING actions */}
-                    {isPending && !editing && (
+                    {selected.kind === "pending" && status === "pending" && (
                         <>
-                            <button
-                                onClick={() => setEditing(true)}
-                                className="flex-1 h-10 rounded-xl border border-white/10 text-[11px] font-black uppercase tracking-widest text-zinc-300 hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Pencil size={13} /> Edit
-                            </button>
+                            {!editing && (
+                                <button
+                                    onClick={() => { setEditing(true); setDraft(content); }}
+                                    className="flex-1 h-10 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-widest text-zinc-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Edit3 size={13} /> Edit Post
+                                </button>
+                            )}
                             <button
                                 onClick={() => run("post", () =>
                                     onPostNow(selected.post._id as Id<"pendingPosts">)
                                 )}
                                 disabled={busy === "post"}
-                                className="flex-1 h-10 rounded-xl bg-primary/20 border border-primary/30 text-[11px] font-black uppercase tracking-widest text-primary hover:bg-primary/30 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                                className="flex-1 h-10 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-40"
                             >
                                 {busy === "post" ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                                 Post Now
-                            </button>
-                            <button
-                                onClick={() => run("delete", () =>
-                                    onDelete(selected.post._id as Id<"pendingPosts">)
-                                )}
-                                disabled={busy === "delete"}
-                                className="h-10 w-10 rounded-xl border border-white/10 text-zinc-500 hover:text-danger hover:border-danger/40 transition-colors flex items-center justify-center disabled:opacity-40"
-                            >
-                                {busy === "delete" ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                             </button>
                         </>
                     )}
 
                     {/* FAILED actions */}
-                    {isHistory && status === "failed" && (
+                    {selected.kind === "history" && status === "failed" && (
                         <>
                             <button
                                 onClick={() => run("retry", () =>
@@ -453,9 +421,9 @@ function PostDialog({
                     )}
 
                     {/* SUCCESS actions */}
-                    {isHistory && status === "success" && (selected as any).post.blueskyUri && (
+                    {selected.kind === "history" && status === "success" && selected.post.blueskyUri && (
                         <a
-                            href={bskyPostUrl((selected as any).post.blueskyUri)}
+                            href={bskyPostUrl(selected.post.blueskyUri)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 h-10 rounded-xl bg-success/10 border border-success/20 text-[11px] font-black uppercase tracking-widest text-success hover:bg-success/20 transition-colors flex items-center justify-center gap-2"
@@ -496,11 +464,12 @@ export default function PostsPage() {
     const loading = history === undefined || pendingData === undefined;
 
     const filteredPending = useMemo(() => {
-        if (!pendingData?.posts) return [];
-        return pendingData.posts.filter(p => 
+        const posts = pendingData?.posts;
+        if (!posts) return [];
+        return posts.filter(p => 
             p.content.toLowerCase().includes(searchQuery.toLowerCase())
         );
-    }, [pendingData?.posts, searchQuery]);
+    }, [pendingData, searchQuery]);
 
     const filteredHistory = useMemo(() => {
         if (!history) return [];

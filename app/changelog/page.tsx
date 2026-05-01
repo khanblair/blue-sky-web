@@ -113,7 +113,7 @@ export default function ChangelogPage() {
                             <span className="text-[11px] font-bold tracking-widest uppercase text-primary">Changelog</span>
                         </div>
                         <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-6">
-                            What's{" "}
+                            What&apos;s{" "}
                             <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-400 to-violet-400">
                                 new
                             </span>

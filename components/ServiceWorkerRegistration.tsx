@@ -60,7 +60,10 @@ export function InstallPWAPopup() {
         if (sessionStorage.getItem(DISMISSED_KEY)) return;
 
         // Pick up native prompt if already captured by the inline <head> script
-        if (window.__pwaInstallPrompt) setNativePrompt(window.__pwaInstallPrompt);
+        if (window.__pwaInstallPrompt) {
+            const prompt = window.__pwaInstallPrompt;
+            setTimeout(() => setNativePrompt(prompt), 0);
+        }
 
         // Also catch it if it fires after hydration
         const onReady = () => {
@@ -178,13 +181,13 @@ export function InstallPWAPopup() {
                             {isIOS ? (
                                 <ol className="space-y-2 text-[11px] text-zinc-400 list-none">
                                     <li className="flex gap-2"><span className="text-primary font-black">1.</span> Tap the <span className="text-white font-bold">Share</span> button in Safari</li>
-                                    <li className="flex gap-2"><span className="text-primary font-black">2.</span> Scroll down and tap <span className="text-white font-bold">"Add to Home Screen"</span></li>
+                                    <li className="flex gap-2"><span className="text-primary font-black">2.</span> Scroll down and tap <span className="text-white font-bold">&quot;Add to Home Screen&quot;</span></li>
                                     <li className="flex gap-2"><span className="text-primary font-black">3.</span> Tap <span className="text-white font-bold">Add</span></li>
                                 </ol>
                             ) : (
                                 <ol className="space-y-2 text-[11px] text-zinc-400 list-none">
                                     <li className="flex gap-2"><span className="text-primary font-black">1.</span> Click the <span className="text-white font-bold">⋮ menu</span> in Chrome</li>
-                                    <li className="flex gap-2"><span className="text-primary font-black">2.</span> Select <span className="text-white font-bold">"Install BlueSky AI…"</span></li>
+                                    <li className="flex gap-2"><span className="text-primary font-black">2.</span> Select <span className="text-white font-bold">&quot;Install BlueSky AI&hellip;&quot;</span></li>
                                     <li className="flex gap-2"><span className="text-primary font-black">3.</span> Click <span className="text-white font-bold">Install</span></li>
                                 </ol>
                             )}
