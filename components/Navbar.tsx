@@ -8,10 +8,16 @@ import { usePathname } from "next/navigation";
 import {
     Cloud, LayoutDashboard, Settings, LogOut,
     Menu, X, Calendar, FileText, Sparkles, User,
-    ChevronDown,
+    ChevronDown, WalletCards, Zap, Shield, Sparkles as SparkleIcon,
 } from "lucide-react";
 import { AuthModal } from "./AuthModal";
 import { motion, AnimatePresence } from "framer-motion";
+
+const publicNav = [
+    { name: "Features", href: "/features" },
+    { name: "Pricing", href: "/pricing" },
+    { name: "Guide", href: "/docs" },
+];
 
 const coreNav = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -23,6 +29,7 @@ const coreNav = [
 const userNav = [
     { name: "Profile", href: "/profile", icon: User },
     { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Billing", href: "/billing", icon: WalletCards },
 ];
 
 function BodyPortal({ children }: { children: React.ReactNode }) {
@@ -42,205 +49,242 @@ export function Navbar() {
         open: false, mode: "signin",
     });
 
-    useEffect(() => { setMenuOpen(false); }, [pathname]);
+    useEffect(() => { setMenuOpen(false); setUserMenuOpen(false); }, [pathname]);
 
     const openSignIn = () => setAuthModal({ open: true, mode: "signin" });
     const openSignUp = () => setAuthModal({ open: true, mode: "signup" });
 
+    const isDashboard = pathname?.startsWith("/dashboard") ||
+        pathname?.startsWith("/schedule") ||
+        pathname?.startsWith("/posts") ||
+        pathname?.startsWith("/ai") ||
+        pathname?.startsWith("/settings") ||
+        pathname?.startsWith("/profile") ||
+        pathname?.startsWith("/billing") ||
+        pathname?.startsWith("/onboarding");
+
     return (
         <>
-            {/* ── Navbar ── */}
-            <nav className="border-b border-white/10 backdrop-blur-md h-16 md:h-24 flex items-center justify-between px-4 sticky top-0 z-[60] bg-zinc-950/90">
-
-                {/* Left: hamburger (mobile) + logo */}
-                <div className="flex items-center gap-3">
-                    {/* Hamburger — always rendered on mobile, no auth gate */}
-                    <button
-                        onClick={() => setMenuOpen((v) => !v)}
-                        className="flex md:hidden w-9 h-9 items-center justify-center rounded-xl border border-white/10 text-white hover:bg-white/10 transition-colors shrink-0"
-                        aria-label="Open menu"
-                    >
-                        <Menu size={20} />
-                    </button>
-
-                    <Link href="/" className="flex items-center gap-2">
-                        <Cloud className="text-primary w-7 h-7 shrink-0" />
-                        <span className="font-bold text-lg tracking-tight text-white hidden sm:inline">BlueSky AI</span>
-                    </Link>
-                </div>
-
-                {/* Center: desktop nav links */}
-                <div className="hidden md:flex items-center gap-8">
-                    <Link href="/" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Home</Link>
-                    <Link href="/features" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Features</Link>
-                    <Link href="/docs" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Guide</Link>
-                    {user && <Link href="/dashboard" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Dashboard</Link>}
-                </div>
-
-                {/* Right: auth — always visible, never shrinks */}
-                <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 ml-auto">
-                    {!isLoaded ? (
-                        <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
-                    ) : user ? (
-                        /* User dropdown */
-                        <div className="relative">
-                            <button
-                                onClick={() => setUserMenuOpen((v) => !v)}
-                                className="flex items-center gap-2 px-2 py-1.5 rounded-full md:rounded-xl hover:bg-white/10 transition-colors bg-white/10"
-                            >
-                                <img src={user.imageUrl} alt="Profile" className="w-8 h-8 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
-                                <span className="text-sm font-bold text-white max-w-[120px] truncate hidden md:inline">
-                                    {user.firstName || user.primaryEmailAddress?.emailAddress}
+            <nav className="sticky top-0 z-[60] w-full backdrop-blur-xl bg-zinc-950/80 border-b border-white/[0.06]">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-16">
+                        <div className="flex items-center gap-8">
+                            <Link href="/" className="flex items-center gap-2.5 group">
+                                <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors">
+                                    <Cloud className="text-primary w-4.5 h-4.5" />
+                                </div>
+                                <span className="font-black text-lg tracking-tight text-white">
+                                    Blue<span className="text-primary">Sky</span> AI
                                 </span>
-                                <ChevronDown size={14} className="text-zinc-500 hidden md:inline" />
-                            </button>
-                            <AnimatePresence>
-                                {userMenuOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
-                                        <motion.div
-                                            initial={{ opacity: 0, y: -4 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -4 }}
-                                            className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-[70] overflow-hidden"
-                                        >
-                                            <div className="px-4 py-3 border-b border-white/5 bg-black/20">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Signed in as</p>
-                                                <p className="text-sm font-bold text-white truncate">{user.primaryEmailAddress?.emailAddress}</p>
-                                            </div>
+                            </Link>
 
-                                            <div className="p-2 space-y-0.5 border-b border-white/5">
-                                                {userNav.map((item) => {
-                                                    const isActive = pathname === item.href;
-                                                    return (
-                                                        <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
-                                                            className={`flex items-center gap-3 px-3 py-2 text-sm font-bold rounded-xl transition-colors ${isActive
-                                                                ? "bg-primary/10 text-primary"
-                                                                : "text-zinc-300 hover:bg-white/5 hover:text-white"
-                                                                }`}>
-                                                            <item.icon size={16} className={`shrink-0 ${isActive ? "text-primary" : "text-zinc-500"}`} />
-                                                            {item.name}
-                                                        </Link>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            <div className="p-2">
-                                                <button onClick={() => signOut()}
-                                                    className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-400 rounded-xl hover:bg-red-500/10 transition-colors w-full">
-                                                    <LogOut size={16} /> Log Out
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    </>
+                            <div className="hidden md:flex items-center gap-1">
+                                {publicNav.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                                            pathname === item.href
+                                                ? "text-white bg-white/[0.06]"
+                                                : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+                                        }`}
+                                    >
+                                        {item.name}
+                                    </Link>
+                                ))}
+                                {user && (
+                                    <Link
+                                        href="/dashboard"
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                                            pathname?.startsWith("/dashboard")
+                                                ? "text-white bg-white/[0.06]"
+                                                : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+                                        }`}
+                                    >
+                                        Dashboard
+                                    </Link>
                                 )}
-                            </AnimatePresence>
+                            </div>
                         </div>
-                    ) : (
-                        <div className="flex items-center gap-2 md:gap-3">
-                            <button onClick={openSignIn} className="text-xs md:text-sm font-black text-zinc-300 hover:text-white transition-colors">Login</button>
-                            <button onClick={openSignUp} className="px-3 md:px-4 h-8 md:h-9 rounded-lg md:rounded-xl bg-primary text-white text-[10px] md:text-sm font-black hover:bg-primary/90 transition-colors">Sign Up</button>
+
+                        <div className="flex items-center gap-3">
+                            {!isLoaded ? (
+                                <div className="w-8 h-8 rounded-full bg-white/5 animate-pulse" />
+                            ) : user ? (
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setUserMenuOpen((v) => !v)}
+                                        className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full hover:bg-white/[0.06] transition-colors"
+                                    >
+                                        <img
+                                            src={user.imageUrl}
+                                            alt=""
+                                            className="w-7 h-7 rounded-full object-cover ring-2 ring-white/10"
+                                            referrerPolicy="no-referrer"
+                                        />
+                                        <span className="text-sm font-semibold text-white max-w-[100px] truncate hidden lg:inline">
+                                            {user.firstName || user.primaryEmailAddress?.emailAddress?.split("@")[0]}
+                                        </span>
+                                        <ChevronDown size={14} className="text-zinc-500 hidden lg:inline" />
+                                    </button>
+                                    <AnimatePresence>
+                                        {userMenuOpen && (
+                                            <>
+                                                <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                                                    transition={{ duration: 0.15 }}
+                                                    className="absolute right-0 top-full mt-2 w-56 bg-zinc-900/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl z-[70] overflow-hidden"
+                                                >
+                                                    <div className="px-3 py-2.5 border-b border-white/[0.06]">
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Account</p>
+                                                        <p className="text-xs font-semibold text-white truncate mt-0.5">{user.primaryEmailAddress?.emailAddress}</p>
+                                                    </div>
+                                                    <div className="p-1.5">
+                                                        {coreNav.map((item) => {
+                                                            const isActive = pathname === item.href;
+                                                            return (
+                                                                <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
+                                                                    className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-zinc-300 hover:bg-white/[0.04]"}`}>
+                                                                    <item.icon size={15} className={isActive ? "text-primary" : "text-zinc-500"} />
+                                                                    {item.name}
+                                                                </Link>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div className="border-t border-white/[0.06] p-1.5">
+                                                        {userNav.map((item) => {
+                                                            const isActive = pathname === item.href;
+                                                            return (
+                                                                <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
+                                                                    className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-semibold transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-zinc-300 hover:bg-white/[0.04]"}`}>
+                                                                    <item.icon size={15} className={isActive ? "text-primary" : "text-zinc-500"} />
+                                                                    {item.name}
+                                                                </Link>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div className="border-t border-white/[0.06] p-1.5">
+                                                        <button onClick={() => signOut()}
+                                                            className="flex items-center gap-2.5 px-2.5 py-2 text-sm font-semibold text-red-400 rounded-lg hover:bg-red-500/10 transition-colors w-full">
+                                                            <LogOut size={15} /> Sign Out
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <button onClick={openSignIn} className="px-3.5 h-8 rounded-lg text-sm font-semibold text-zinc-300 hover:text-white transition-colors">
+                                        Log in
+                                    </button>
+                                    <button onClick={openSignUp} className="px-4 h-8 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
+                                        Get Started
+                                    </button>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={() => setMenuOpen(true)}
+                                className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.08] text-zinc-400 hover:text-white hover:bg-white/[0.04] transition-colors"
+                                aria-label="Menu"
+                            >
+                                <Menu size={18} />
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </div>
             </nav>
 
-            {/* ── Mobile drawer — portalled to body ── */}
             <BodyPortal>
                 <AnimatePresence>
                     {menuOpen && (
                         <>
-                            {/* Backdrop */}
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 onClick={() => setMenuOpen(false)}
-                                style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+                                className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm"
                             />
-
-                            {/* Left-side panel */}
                             <motion.div
-                                initial={{ x: -300, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                exit={{ x: -300, opacity: 0 }}
-                                transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                                style={{
-                                    position: "fixed", top: 0, left: 0, bottom: 0,
-                                    width: 280, zIndex: 9999,
-                                    background: "#09090b",
-                                    borderRight: "1px solid rgba(255,255,255,0.08)",
-                                    boxShadow: "8px 0 40px rgba(0,0,0,0.7)",
-                                    display: "flex", flexDirection: "column",
-                                }}
+                                initial={{ x: "-100%" }}
+                                animate={{ x: 0 }}
+                                exit={{ x: "-100%" }}
+                                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                                className="fixed inset-y-0 left-0 w-[280px] z-[9999] bg-zinc-950 border-r border-white/[0.06] flex flex-col"
                             >
-                                {/* Panel header */}
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <Cloud size={22} style={{ color: "#3b82f6" }} />
-                                        <span style={{ fontWeight: 900, fontSize: 16, color: "white" }}>BlueSky AI</span>
-                                    </div>
-                                    <button onClick={() => setMenuOpen(false)}
-                                        style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", color: "#71717a", background: "transparent", cursor: "pointer" }}>
-                                        <X size={16} />
+                                <div className="flex items-center justify-between px-4 h-16 border-b border-white/[0.06]">
+                                    <Link href="/" className="flex items-center gap-2" onClick={() => setMenuOpen(false)}>
+                                        <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+                                            <Cloud className="text-primary w-4 h-4" />
+                                        </div>
+                                        <span className="font-black text-base text-white">
+                                            Blue<span className="text-primary">Sky</span> AI
+                                        </span>
+                                    </Link>
+                                    <button onClick={() => setMenuOpen(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+                                        <X size={18} />
                                     </button>
                                 </div>
 
-                                {/* Links */}
-                                <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
+                                <div className="flex-1 overflow-y-auto py-2">
                                     {user ? (
-                                        <>
-                                            <div style={{ padding: "8px 12px 12px", marginBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                                                <p style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "#52525b", marginBottom: 2 }}>Signed in as</p>
-                                                <p style={{ fontSize: 13, fontWeight: 700, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                    {user.primaryEmailAddress?.emailAddress}
-                                                </p>
+                                        <div className="px-2">
+                                            <div className="px-3 py-2 mb-2">
+                                                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Signed in as</p>
+                                                <p className="text-xs font-semibold text-white truncate">{user.primaryEmailAddress?.emailAddress}</p>
                                             </div>
                                             {coreNav.map((item) => {
                                                 const isActive = pathname === item.href;
                                                 return (
                                                     <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)}
-                                                        style={{
-                                                            display: "flex", alignItems: "center", gap: 12,
-                                                            padding: "11px 12px", borderRadius: 12, marginBottom: 2,
-                                                            fontSize: 14, fontWeight: 700, textDecoration: "none",
-                                                            background: isActive ? "rgba(59,130,246,0.15)" : "transparent",
-                                                            color: isActive ? "#60a5fa" : "#d4d4d8",
-                                                        }}>
-                                                        <item.icon size={18} style={{ color: isActive ? "#60a5fa" : "#52525b", flexShrink: 0 }} />
+                                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-zinc-300 hover:bg-white/[0.04]"}`}>
+                                                        <item.icon size={17} className={isActive ? "text-primary" : "text-zinc-500"} />
                                                         {item.name}
                                                     </Link>
                                                 );
                                             })}
-                                        </>
-                                    ) : (
-                                        <>
-                                            {[{ name: "Home", href: "/" }, { name: "Features", href: "/features" }, { name: "Guide", href: "/docs" }].map((item) => (
+                                            <div className="border-t border-white/[0.06] my-2" />
+                                            {userNav.map((item) => (
                                                 <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)}
-                                                    style={{ display: "flex", alignItems: "center", padding: "11px 12px", borderRadius: 12, marginBottom: 2, fontSize: 14, fontWeight: 700, color: "#d4d4d8", textDecoration: "none" }}>
+                                                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-zinc-300 hover:bg-white/[0.04] transition-colors">
+                                                    <item.icon size={17} className="text-zinc-500" />
                                                     {item.name}
                                                 </Link>
                                             ))}
-                                        </>
+                                        </div>
+                                    ) : (
+                                        <div className="px-2">
+                                            {publicNav.map((item) => (
+                                                <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)}
+                                                    className="flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold text-zinc-300 hover:bg-white/[0.04] transition-colors">
+                                                    {item.name}
+                                                </Link>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Footer */}
-                                <div style={{ padding: "12px 12px 32px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                                <div className="p-4 border-t border-white/[0.06]">
                                     {user ? (
                                         <button onClick={() => { signOut(); setMenuOpen(false); }}
-                                            style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 12px", borderRadius: 12, fontSize: 14, fontWeight: 700, color: "#f87171", background: "transparent", border: "none", cursor: "pointer" }}>
-                                            <LogOut size={18} /> Log Out
+                                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors">
+                                            <LogOut size={16} /> Sign Out
                                         </button>
                                     ) : (
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                        <div className="flex flex-col gap-2">
                                             <button onClick={() => { openSignIn(); setMenuOpen(false); }}
-                                                style={{ width: "100%", height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", fontSize: 13, fontWeight: 900, color: "white", background: "transparent", cursor: "pointer" }}>
-                                                Login
+                                                className="w-full py-2.5 rounded-lg text-sm font-semibold text-white border border-white/10 hover:bg-white/[0.04] transition-colors">
+                                                Log in
                                             </button>
                                             <button onClick={() => { openSignUp(); setMenuOpen(false); }}
-                                                style={{ width: "100%", height: 42, borderRadius: 12, fontSize: 13, fontWeight: 900, color: "white", background: "#2563eb", border: "none", cursor: "pointer" }}>
-                                                Sign Up
+                                                className="w-full py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:bg-primary/90 transition-colors">
+                                                Get Started
                                             </button>
                                         </div>
                                     )}

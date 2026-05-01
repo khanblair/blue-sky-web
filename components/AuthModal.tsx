@@ -36,18 +36,12 @@ export function AuthModal({ isOpen, onClose, initialMode = "signin" }: AuthModal
         setIsLoading(true);
         try {
             if (mode === "signin") {
-                if (!clerk.client.signIn) throw new Error("SignIn not available");
-                await (clerk.client.signIn as any).authenticateWithRedirect({
-                    strategy: "oauth_google",
-                    redirectUrl: "/sso-callback",
-                    redirectUrlComplete: "/dashboard",
+                await clerk.redirectToSignIn({
+                    redirectUrl: "/dashboard",
                 });
             } else {
-                if (!clerk.client.signUp) throw new Error("SignUp not available");
-                await (clerk.client.signUp as any).authenticateWithRedirect({
-                    strategy: "oauth_google",
-                    redirectUrl: "/sso-callback",
-                    redirectUrlComplete: "/onboarding",
+                await clerk.redirectToSignUp({
+                    redirectUrl: "/onboarding",
                 });
             }
         } catch (err) {
@@ -89,7 +83,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "signin" }: AuthModal
                                 <Cloud className="text-blue-500 w-10 h-10" />
                             </div>
                             <div className="space-y-1">
-                                <h2 className="text-2xl font-black tracking-tight text-white line-clamp-1">
+                                <h2 className="text-2xl font-black tracking-tight text-white">
                                     {mode === "signin" ? "Welcome Back" : "Create Account"}
                                 </h2>
                                 <p className="text-zinc-400 text-sm px-4">
@@ -104,7 +98,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "signin" }: AuthModal
                             <button
                                 onClick={handleGoogleAuth}
                                 disabled={isLoading}
-                                className="group relative w-full h-14 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-lg shadow-blue-600/20 transition-all border-none font-bold overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="group relative w-full h-14 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-lg shadow-blue-600/20 transition-all border-none font-bold overflow-hidden px-4 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent group-hover:opacity-0 transition-opacity" />
                                 <svg className="w-5 h-5 shrink-0 z-10" viewBox="0 0 24 24">
@@ -150,8 +144,8 @@ export function AuthModal({ isOpen, onClose, initialMode = "signin" }: AuthModal
                             </div>
                         </div>
 
-                        <div className="bg-white/[0.02] p-6 border-t border-white/5 text-center mt-auto">
-                            <p className="text-[10px] text-zinc-500 leading-relaxed uppercase font-bold tracking-tight">
+                        <div className="bg-white/[0.02] p-8 border-t border-white/5 text-center mt-auto">
+                            <p className="text-[10px] text-zinc-400 leading-relaxed uppercase font-bold tracking-normal">
                                 By continuing, you agree to our <br />
                                 <span className="text-zinc-300 hover:text-white cursor-pointer transition-colors">Terms of Service</span> and <span className="text-zinc-300 hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
                             </p>

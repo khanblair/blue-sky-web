@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -21,6 +21,7 @@ import {
     FileText,
     MessageSquare,
     RefreshCw,
+    Search,
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,7 +29,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type FilterTab = "all" | "success" | "failed" | "pending";
+type FilterTab = "all" | "success" | "failed" | "pending" | "comments";
 
 type PendingPost = {
     _id: string;
@@ -347,7 +348,14 @@ function PostDialog({
                                 )}
                             </div>
                             <div className="bg-white/[0.03] rounded-xl border border-white/5 overflow-hidden">
-                                {comments && comments.length > 0 ? (
+                                {comments === undefined ? (
+                                    <div className="p-12 flex flex-col items-center justify-center gap-3">
+                                        <Loader2 size={24} className="text-primary animate-spin" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                                            Fetching comments...
+                                        </p>
+                                    </div>
+                                ) : comments.length > 0 ? (
                                     <div className="divide-y divide-white/5 max-h-[200px] overflow-y-auto">
                                         {comments.map((comment) => (
                                             <div key={comment._id} className="p-3 flex gap-3">
@@ -483,8 +491,38 @@ export default function PostsPage() {
 
     const [filter, setFilter] = useState<FilterTab>("all");
     const [selected, setSelected] = useState<SelectedPost | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const loading = history === undefined || pendingData === undefined;
+
+    const filteredPending = useMemo(() => {
+        if (!pendingData?.posts) return [];
+        return pendingData.posts.filter(p => 
+            p.content.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [pendingData?.posts, searchQuery]);
+
+    const filteredHistory = useMemo(() => {
+        if (!history) return [];
+        return history.filter(p => {
+            const matchesSearch = p.content.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesFilter = filter === "all" || 
+                               (filter === "success" && p.status === "success") || 
+                               (filter === "failed" && p.status === "failed");
+            return matchesSearch && matchesFilter;
+        });
+    }, [history, filter, searchQuery]);
+
+    const allComments = useQuery(api.posting.getAllComments) || [];
+
+    const filteredComments = useMemo(() => {
+        return allComments.filter(c => {
+            const matchesSearch = c.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                (c.authorDisplayName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                (c.authorHandle || "").toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesSearch;
+        });
+    }, [allComments, searchQuery]);
 
     if (loading) {
         return (
@@ -500,16 +538,19 @@ export default function PostsPage() {
         pendingData.postIntervalHours,
     );
 
-    const successCount = history.filter((p) => p.status === "success").length;
-    const failedCount = history.filter((p) => p.status === "failed").length;
-    const pendingCount = pendingData.posts.length;
-    const totalCount = history.length + pendingCount;
+    // Counts for tabs - search aware
+    const matchPendingCount = pendingData.posts.filter(p => p.content.toLowerCase().includes(searchQuery.toLowerCase())).length;
+    const matchSuccessCount = history.filter(p => p.status === "success" && p.content.toLowerCase().includes(searchQuery.toLowerCase())).length;
+    const matchFailedCount = history.filter(p => p.status === "failed" && p.content.toLowerCase().includes(searchQuery.toLowerCase())).length;
+    const matchCommentsCount = filteredComments.length;
+    const matchTotalCount = matchPendingCount + matchSuccessCount + matchFailedCount;
 
     const TABS: { key: FilterTab; label: string; count: number; color: string }[] = [
-        { key: "all",     label: "All",     count: totalCount,   color: "text-white" },
-        { key: "pending", label: "Pending", count: pendingCount, color: "text-warning" },
-        { key: "success", label: "Posted",  count: successCount, color: "text-success" },
-        { key: "failed",  label: "Failed",  count: failedCount,  color: "text-danger" },
+        { key: "all",      label: "All",      count: matchTotalCount,   color: "text-white" },
+        { key: "pending",  label: "Pending",  count: matchPendingCount, color: "text-warning" },
+        { key: "success",  label: "Posted",   count: matchSuccessCount, color: "text-success" },
+        { key: "failed",   label: "Failed",   count: matchFailedCount,  color: "text-danger" },
+        { key: "comments", label: "Comments", count: matchCommentsCount, color: "text-primary" },
     ];
 
     const openPending = (post: PendingPost) =>
@@ -517,6 +558,8 @@ export default function PostsPage() {
 
     const openHistory = (post: HistoryPost) =>
         setSelected({ kind: "history", post });
+
+    const showPending = filter === "all" || filter === "pending";
 
     return (
         <>
@@ -526,24 +569,43 @@ export default function PostsPage() {
                     <p className="text-default-500">Your full post history and scheduled queue</p>
                 </header>
 
-                {/* Filter tabs */}
-                <div className="flex items-center gap-1 p-1 bg-default-50 border border-divider rounded-xl w-fit">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setFilter(tab.key)}
-                            className={`flex items-center gap-2 px-4 h-8 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
-                                filter === tab.key
-                                    ? "bg-black text-white shadow"
-                                    : "text-default-400 hover:text-white"
-                            }`}
-                        >
-                            {tab.label}
-                            <span className={`text-[10px] font-black ${filter === tab.key ? tab.color : "text-default-500"}`}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    ))}
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        {/* Filter tabs - Scrollable on mobile */}
+                        <div className="w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+                            <div className="flex items-center gap-1 p-1 bg-default-50 border border-divider rounded-xl w-max">
+                                {TABS.map((tab) => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setFilter(tab.key)}
+                                        className={`flex items-center gap-2 px-4 h-8 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                                            filter === tab.key
+                                                ? "bg-black text-white shadow"
+                                                : "text-default-400 hover:text-white"
+                                        }`}
+                                    >
+                                        {tab.label}
+                                        <span className={`text-[10px] font-black ${filter === tab.key ? tab.color : "text-default-500"}`}>
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="relative group w-full md:w-72">
+                            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-primary transition-colors">
+                                <Search size={15} strokeWidth={2.5} />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder={filter === "comments" ? "Search comments..." : "Search posts..."}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <CardRoot className="bg-surface border-divider border">
@@ -563,8 +625,8 @@ export default function PostsPage() {
                             </thead>
                             <tbody>
                                 {/* ── Pending rows ── */}
-                                {(filter === "all" || filter === "pending") &&
-                                    pendingData.posts.map((post) => {
+                                {showPending &&
+                                    filteredPending.map((post) => {
                                         const estTime = publishTimes.get(post._id);
                                         return (
                                             <tr
@@ -607,14 +669,7 @@ export default function PostsPage() {
                                     })}
 
                                 {/* ── History rows ── */}
-                                {(history ?? [])
-                                    .filter((p) => {
-                                        if (filter === "all") return true;
-                                        if (filter === "success") return p.status === "success";
-                                        if (filter === "failed") return p.status === "failed";
-                                        return false;
-                                    })
-                                    .map((post) => (
+                                {filter !== "comments" && filteredHistory.map((post) => (
                                         <tr
                                             key={post._id}
                                             onClick={() => openHistory(post)}
@@ -657,17 +712,66 @@ export default function PostsPage() {
                                         </tr>
                                     ))}
 
+                                {/* ── Comment rows ── */}
+                                {filter === "comments" && filteredComments.map((comment) => (
+                                    <tr
+                                        key={comment._id}
+                                        className="border-b border-divider/50 last:border-none hover:bg-default-50/50 transition-colors"
+                                    >
+                                        <td className="px-6 py-5 align-top">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                                    {comment.authorAvatar ? (
+                                                        <img src={comment.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-[8px] font-black text-primary">
+                                                            {(comment.authorDisplayName || comment.authorHandle || "U").charAt(0).toUpperCase()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <Chip variant="soft" color="accent" size="sm" className="font-black text-[8px] uppercase h-5">
+                                                    COMMENT
+                                                </Chip>
+                                            </div>
+                                        </td>
+                                        <td className="max-w-md px-6 py-5 align-top">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[10px] font-black text-zinc-400">
+                                                    {comment.authorDisplayName || (comment.authorHandle ? `@${comment.authorHandle}` : "Anonymous")}
+                                                </span>
+                                                <p className="text-sm font-bold text-white/90 line-clamp-2 leading-relaxed">
+                                                    {comment.content}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5 align-top">
+                                            <div className="flex flex-col">
+                                                <span className="text-[11px] font-black text-white">
+                                                    {format(comment.createdAt, "MMM d, yyyy")}
+                                                </span>
+                                                <span className="text-[9px] font-bold text-default-400 uppercase tracking-tighter">
+                                                    {format(comment.createdAt, "h:mm a")}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+
                                 {/* Empty state */}
-                                {((filter === "all" && totalCount === 0) ||
-                                    (filter === "pending" && pendingCount === 0) ||
-                                    (filter === "success" && successCount === 0) ||
-                                    (filter === "failed" && failedCount === 0)) && (
+                                {filteredPending.length === 0 && filteredHistory.length === 0 && (filter !== "comments" || filteredComments.length === 0) && (
                                     <tr>
                                         <td colSpan={3}>
                                             <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50">
-                                                <History size={48} className="text-default-300" />
+                                                {searchQuery ? (
+                                                    <Search size={48} className="text-default-300" />
+                                                ) : (
+                                                    <History size={48} className="text-default-300" />
+                                                )}
                                                 <p className="font-bold text-sm text-default-400">
-                                                    No {filter === "all" ? "" : filter} posts found
+                                                    {searchQuery 
+                                                        ? `No posts matching "${searchQuery}"`
+                                                        : `No ${filter === "all" ? "" : filter} posts found`
+                                                    }
                                                 </p>
                                             </div>
                                         </td>

@@ -44,7 +44,7 @@ export default function FeaturesLayout({
     }
 
     return (
-        <div className="flex flex-col md:flex-row gap-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-16 flex flex-col md:flex-row gap-10">
             <Sidebar className="w-full md:w-64 h-auto md:h-[calc(100vh-8rem)] sticky top-32 shrink-0 hidden md:flex" />
             <div className="flex-grow min-w-0">
                 {children}

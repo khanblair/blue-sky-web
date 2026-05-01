@@ -10,13 +10,20 @@ import {
     User,
     FileText,
     Sparkles,
+    WalletCards,
 } from "lucide-react";
 
 const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Schedule", href: "/schedule", icon: Calendar },
     { name: "Posts", href: "/posts", icon: FileText },
-    { name: "AI", href: "/ai", icon: Sparkles },
+    { name: "AI Config", href: "/ai", icon: Sparkles },
+    { name: "Billing", href: "/billing", icon: WalletCards },
+];
+
+const userNav = [
+    { name: "Profile", href: "/profile", icon: User },
+    { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 // ─── Desktop sidebar ────────────────────────────────────────────────────────

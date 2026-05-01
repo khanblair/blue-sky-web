@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, X, Smartphone } from "lucide-react";
+import { X, Smartphone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function ServiceWorkerRegistration() {
@@ -12,6 +12,15 @@ export function ServiceWorkerRegistration() {
                 .then((reg) => console.log("[SW] Registered:", reg.scope))
                 .catch((err) => console.error("[SW] Registration failed:", err));
         }
+
+        window.__pwaInstallPrompt = null;
+        const handler = (e: Event) => {
+            e.preventDefault();
+            window.__pwaInstallPrompt = e as BeforeInstallPromptEvent;
+            window.dispatchEvent(new Event("pwaPromptReady"));
+        };
+        window.addEventListener("beforeinstallprompt", handler);
+        return () => window.removeEventListener("beforeinstallprompt", handler);
     }, []);
 
     return null;
@@ -159,8 +168,7 @@ export function InstallPWAPopup() {
                                     disabled={installing}
                                     className="flex-[2] h-9 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-60"
                                 >
-                                    <Download size={13} />
-                                    {installing ? "Installing…" : "Install"}
+                                    {installing ? "Installing\u2026" : "Install"}
                                 </button>
                             </div>
                         </div>

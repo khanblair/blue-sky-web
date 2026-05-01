@@ -370,18 +370,32 @@ export const generatePendingPosts = internalAction({
 
         for (const user of users) {
             try {
-                const content = await ctx.runAction(internal.openrouter.generatePost, {
+                const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+                    userId: user._id,
+                    action: "generate",
+                });
+
+                if (!limitCheck.allowed) {
+                    console.log(`Skipping generation for ${user.handle}: ${limitCheck.message}`);
+                    continue;
+                }
+
+                const content = await ctx.runAction(internal.aiGeneration.generatePost, {
                     topics: user.preferences.topics,
-                    subtopics: user.preferences.subtopics, // Pass subtopics
+                    subtopics: user.preferences.subtopics,
                     tags: user.preferences.tags,
                     tone: user.preferences.tone,
-                    goal: user.preferences.goal, // Pass goal
+                    goal: user.preferences.goal,
+                    userId: user._id,
                 });
 
                 await ctx.runMutation(internal.posting.savePendingPost, {
                     userId: user._id,
                     content,
                 });
+
+                await ctx.runMutation(internal.usage.incrementAiGeneration, { userId: user._id });
+                await ctx.runMutation(internal.usage.incrementPostGenerated, { userId: user._id });
 
                 // Telegram Notification
                 await ctx.runAction(internal.telegram.sendMessage, {
@@ -416,6 +430,16 @@ export const publishPendingPosts = internalAction({
                 if (!user.isActive) throw new Error("User inactive");
                 if (!user.handle || !user.appPassword) throw new Error("Missing Bluesky credentials");
 
+                const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+                    userId: user._id,
+                    action: "publish",
+                });
+
+                if (!limitCheck.allowed) {
+                    console.log(`Skipping publish for ${user.handle}: ${limitCheck.message}`);
+                    continue;
+                }
+
                 // @ts-ignore
                 const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
                     handle: user.handle,
@@ -434,6 +458,8 @@ export const publishPendingPosts = internalAction({
                     blueskyUri,
                     status: "success",
                 });
+
+                await ctx.runMutation(internal.usage.incrementPostPublished, { userId: user._id });
 
                 // Telegram Notification
                 await ctx.runAction(internal.telegram.sendMessage, {
@@ -538,6 +564,14 @@ export const postNow = action({
         if (!user) throw new Error("User record not found");
         if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
 
+        const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+            userId: user._id,
+            action: "manualPost",
+        });
+        if (!limitCheck.allowed) {
+            throw new Error(limitCheck.message);
+        }
+
         try {
             // @ts-ignore
             const blueskyUri = await ctx.runAction(internal.bluesky.postToBluesky, {
@@ -552,6 +586,8 @@ export const postNow = action({
                 blueskyUri,
                 status: "success",
             });
+
+            await ctx.runMutation(internal.usage.incrementPostPublished, { userId: user._id });
 
             // Telegram Notification
             const userForHandle = (await ctx.runQuery(api.users.getCurrentUser))!;
@@ -580,10 +616,10 @@ export const postNow = action({
 export const generateAndPostNow = action({
     args: {
         topics: v.array(v.string()),
-        subtopics: v.optional(v.array(v.string())), // Added subtopics
+        subtopics: v.optional(v.array(v.string())),
         tags: v.optional(v.array(v.string())),
         tone: v.string(),
-        goal: v.optional(v.string()), // Added goal
+        goal: v.optional(v.string()),
     },
     handler: async (ctx, args): Promise<any> => {
         const identity = await ctx.auth.getUserIdentity();
@@ -592,12 +628,21 @@ export const generateAndPostNow = action({
         const user = await ctx.runQuery(api.users.getCurrentUser);
         if (!user) throw new Error("User record not found");
 
-        const content = await ctx.runAction(internal.openrouter.generatePost, {
+        const genLimit = await ctx.runQuery(internal.usage.checkLimit, {
+            userId: user._id,
+            action: "generate",
+        });
+        if (!genLimit.allowed) {
+            throw new Error(genLimit.message);
+        }
+
+        const content = await ctx.runAction(internal.aiGeneration.generatePost, {
             topics: args.topics,
-            subtopics: args.subtopics, // Pass subtopics
+            subtopics: args.subtopics,
             tags: args.tags,
             tone: args.tone,
-            goal: args.goal, // Pass goal
+            goal: args.goal,
+            userId: user._id,
         });
 
         if (!content) throw new Error("Failed to generate content");
@@ -702,6 +747,25 @@ export const getCommentByBlueskyUri = query({
             .query("comments")
             .withIndex("by_blueskyUri", (q) => q.eq("blueskyUri", args.blueskyUri))
             .unique();
+    },
+});
+
+export const getAllComments = query({
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return [];
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+            .unique();
+
+        if (!user) return [];
+
+        return await ctx.db
+            .query("comments")
+            .filter((q) => q.eq(q.field("userId"), user._id))
+            .collect();
     },
 });
 

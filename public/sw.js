@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bluesky-ai-v2';
+const CACHE_NAME = 'bluesky-ai-v3';
 
 // Assets to pre-cache on install
 const PRECACHE_URLS = [

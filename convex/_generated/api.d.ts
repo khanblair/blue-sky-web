@@ -8,12 +8,16 @@
  * @module
  */
 
+import type * as aiGeneration from "../aiGeneration.js";
 import type * as bluesky from "../bluesky.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as openrouter from "../openrouter.js";
+import type * as planLimits from "../planLimits.js";
 import type * as posting from "../posting.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as telegram from "../telegram.js";
+import type * as usage from "../usage.js";
 import type * as users from "../users.js";
 import type * as whatsapp from "../whatsapp.js";
 
@@ -24,12 +28,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiGeneration: typeof aiGeneration;
   bluesky: typeof bluesky;
   crons: typeof crons;
   http: typeof http;
   openrouter: typeof openrouter;
+  planLimits: typeof planLimits;
   posting: typeof posting;
+  subscriptions: typeof subscriptions;
   telegram: typeof telegram;
+  usage: typeof usage;
   users: typeof users;
   whatsapp: typeof whatsapp;
 }>;

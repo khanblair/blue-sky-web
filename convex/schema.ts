@@ -70,4 +70,44 @@ export default defineSchema({
         createdAt: v.number(),
     }).index("by_postHistoryId", ["postHistoryId"])
         .index("by_blueskyUri", ["blueskyUri"]),
+
+    subscriptions: defineTable({
+        userId: v.id("users"),
+        plan: v.string(), // "starter" | "lite" | "basic" | "pro" | "standard" | "enterprise"
+        status: v.string(), // "active" | "past_due" | "canceled" | "expired"
+        paymentMethod: v.optional(v.string()), // "crypto_usdc_eth" | "crypto_usdc_base" | "crypto_eth" | "crypto_btc" | "manual"
+        txHash: v.optional(v.string()),
+        walletAddress: v.optional(v.string()),
+        amountPaid: v.optional(v.number()),
+        currency: v.optional(v.string()),
+        currentPeriodStart: v.number(),
+        currentPeriodEnd: v.number(),
+        cancelAtPeriodEnd: v.optional(v.boolean()),
+        verifiedAt: v.optional(v.number()),
+        createdAt: v.number(),
+    }).index("by_userId", ["userId"])
+        .index("by_status", ["status"]),
+
+    usageMetrics: defineTable({
+        userId: v.id("users"),
+        periodStart: v.number(),
+        periodEnd: v.number(),
+        postsGenerated: v.number(),
+        postsPublished: v.number(),
+        aiGenerationsUsed: v.number(),
+    }).index("by_userId", ["userId"])
+        .index("by_userId_periodStart", ["userId", "periodStart"]),
+
+    aiProviderConfigs: defineTable({
+        userId: v.id("users"),
+        provider: v.string(), // "openrouter" | "openai" | "anthropic" | "google"
+        apiKey: v.optional(v.string()),
+        model: v.string(),
+        temperature: v.optional(v.number()),
+        maxTokens: v.optional(v.number()),
+        isActive: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    }).index("by_userId", ["userId"])
+        .index("by_userId_active", ["userId", "isActive"]),
 });

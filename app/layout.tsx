@@ -3,9 +3,11 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientProviders } from "./client-providers";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { FloatingPostButton } from "@/components/FloatingPostButton";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { InstallPWAPopup } from "@/components/ServiceWorkerRegistration";
+import { ScrollToTop } from "@/components/ScrollToTop";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,32 +54,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <head>
-        {/* Capture beforeinstallprompt as early as possible — before React hydrates */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-          window.__pwaInstallPrompt = null;
-          window.addEventListener('beforeinstallprompt', function(e) {
-            e.preventDefault();
-            window.__pwaInstallPrompt = e;
-            window.dispatchEvent(new Event('pwaPromptReady'));
-          });
-        `}} />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
         <ServiceWorkerRegistration />
         <ClientProviders>
           <div className="relative min-h-screen flex flex-col">
-            <Navbar />
-            <main className="container mx-auto max-w-7xl pt-8 md:pt-16 px-6 flex-grow">
-              {children}
+<Navbar />
+            <main className="flex-grow">
+                {children}
             </main>
-            <footer className="w-full flex items-center justify-center py-8 text-default-400 text-sm border-t border-divider/50 mt-12">
-              <span className="opacity-70">Powered by Convex, OpenRouter, and HeroUI</span>
-            </footer>
+            <Footer />
             <FloatingPostButton />
+            <ScrollToTop />
             <InstallPWAPopup />
           </div>
           {/* MobileNav removed — navigation is handled by the hamburger menu in Navbar */}

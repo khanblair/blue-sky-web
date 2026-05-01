@@ -13,11 +13,13 @@ import {
     SwitchControl,
     SwitchThumb,
 } from "@heroui/react";
-import { Sparkles, Zap, CalendarClock, Loader2 } from "lucide-react";
-import { useQuery, useMutation } from "convex/react";
+import { Sparkles, Zap, CalendarClock, Loader2, Cpu, Key, ChevronDown as ChevronDownIcon } from "lucide-react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { NICHES, getNicheOptions, getSubcategories } from "@/lib/niches";
 import { HASHTAG_DATABASE, selectBestHashtags } from "@/lib/hashtags";
+import { PROVIDER_INFO } from "@/lib/plans";
+import { PlanGate, UpsellBanner } from "@/components/ui";
 
 const GENERATE_SUGGESTIONS = [
     { label: "Every 1h", value: 1 },
@@ -133,6 +135,16 @@ export default function AIPage() {
     });
     const [isSaving, setIsSaving] = useState(false);
 
+    const planDetails = useQuery(api.subscriptions.getPlanDetails);
+    const currentPlan = planDetails?.plan ?? "starter";
+
+    const [selectedProvider, setSelectedProvider] = useState("openrouter");
+    const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash-lite");
+    const [apiKey, setApiKey] = useState("");
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [isSavingProvider, setIsSavingProvider] = useState(false);
+    const saveProviderConfig = useMutation(api.aiGeneration.saveProviderConfig as any);
+
     useEffect(() => {
         if (preferences) {
             setLocalPrefs({
@@ -201,6 +213,8 @@ export default function AIPage() {
                 <h1 className="text-4xl font-black tracking-tight mb-2 uppercase">AI Configuration</h1>
                 <p className="text-default-500">Fine-tune your personal AI model and generation rules</p>
             </header>
+
+            <UpsellBanner currentPlan={currentPlan} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-8">
@@ -289,6 +303,130 @@ export default function AIPage() {
                             </div>
                         </CardContent>
                     </CardRoot>
+
+                    <PlanGate required="pro" currentPlan={currentPlan} fallback={
+                        <CardRoot className="bg-surface border-divider border">
+                            <CardContent className="p-6 opacity-60">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <p className="font-bold flex items-center gap-2">
+                                            <Cpu size={16} className="text-primary" />
+                                            AI Model & Provider
+                                        </p>
+                                        <p className="text-xs text-default-500">Available on Pro and Enterprise plans</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </CardRoot>
+                    }>
+                        <CardRoot className="bg-surface border-divider border">
+                            <CardHeader className="flex gap-3 p-6">
+                                <Cpu className="text-primary" size={20} />
+                                <div className="flex flex-col text-left">
+                                    <p className="font-black uppercase tracking-widest text-sm">AI Model & Provider</p>
+                                    <p className="text-xs text-default-500">Choose your AI model or bring your own API key</p>
+                                </div>
+                            </CardHeader>
+                            <div className="h-px bg-divider w-full" />
+                            <CardContent className="p-6 space-y-6">
+                                <TextFieldRoot className="flex flex-col gap-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Provider</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {PROVIDER_INFO.map((p) => (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedProvider(p.id);
+                                                    setSelectedModel(p.models[0]);
+                                                }}
+                                                className={`h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors ${
+                                                    selectedProvider === p.id
+                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                                        : "bg-transparent border-divider text-default-400 hover:border-primary/50 hover:text-primary"
+                                                }`}
+                                            >
+                                                {p.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </TextFieldRoot>
+
+                                <TextFieldRoot className="flex flex-col gap-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Model</Label>
+                                    <select
+                                        value={selectedModel}
+                                        onChange={(e) => setSelectedModel(e.target.value)}
+                                        className="h-11 px-4 bg-default-50 border border-divider rounded-xl text-sm font-bold text-white focus:outline-none focus:border-primary appearance-none"
+                                    >
+                                        {PROVIDER_INFO.find(p => p.id === selectedProvider)?.models.map((m) => (
+                                            <option key={m} value={m} className="bg-zinc-900">{m}</option>
+                                        ))}
+                                    </select>
+                                </TextFieldRoot>
+
+                                {selectedProvider !== "openrouter" && (
+                                    <TextFieldRoot className="flex flex-col gap-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400 flex items-center gap-1.5">
+                                            <Key size={10} /> Your API Key (BYOK)
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                type={showApiKey ? "text" : "password"}
+                                                placeholder={`Enter your ${PROVIDER_INFO.find(p => p.id === selectedProvider)?.name} API key`}
+                                                value={apiKey}
+                                                onChange={(e) => setApiKey(e.target.value)}
+                                                className="bg-default-50 border-divider pr-10"
+                                            />
+                                            <button
+                                                onClick={() => setShowApiKey(!showApiKey)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400 hover:text-default-600"
+                                            >
+                                                {showApiKey ? "Hide" : "Show"}
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-default-400 italic">Your key is stored encrypted and never exposed to the client.</p>
+                                    </TextFieldRoot>
+                                )}
+
+                                {selectedProvider === "openrouter" && (
+                                    <div className="p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                                        <p className="text-[10px] text-default-500">
+                                            Using the platform&apos;s shared OpenRouter key. <span className="text-primary font-bold">Pro & Enterprise</span> users can bring their own key for other providers.
+                                        </p>
+                                    </div>
+                                )}
+
+                                <Button
+                                    variant="primary"
+                                    className="w-full font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20"
+                                    onPress={async () => {
+                                        setIsSavingProvider(true);
+                                        try {
+                                            await saveProviderConfig({
+                                                provider: selectedProvider,
+                                                model: selectedModel,
+                                                apiKey: apiKey || undefined,
+                                                isActive: true,
+                                            });
+                                            alert("AI provider configuration saved!");
+                                        } catch (err: any) {
+                                            alert(err.message || "Failed to save provider config");
+                                        } finally {
+                                            setIsSavingProvider(false);
+                                        }
+                                    }}
+                                    isDisabled={isSavingProvider}
+                                >
+                                    {isSavingProvider ? (
+                                        <><Loader2 className="animate-spin mr-2" size={16} />Saving...</>
+                                    ) : (
+                                        "Save AI Provider"
+                                    )}
+                                </Button>
+                            </CardContent>
+                        </CardRoot>
+                    </PlanGate>
                 </div>
 
                 {/* Content Strategy */}

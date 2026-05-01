@@ -22,17 +22,26 @@ import {
     Send,
     MessageSquare,
     Clock,
-    Loader2
+    Loader2,
+    Zap,
+    Crown,
 } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatDistanceToNow } from "date-fns";
+import { UsageBar, UpsellBanner } from "@/components/ui";
+import { PLAN_LIMITS, type PlanId } from "@/lib/plans";
 
 export default function DashboardPage() {
     const user = useQuery(api.users.getCurrentUser);
     const preferences = useQuery(api.users.getPreferences);
     const stats = useQuery(api.posting.getStats);
     const history = useQuery(api.posting.getPostHistory);
+    const planDetails = useQuery(api.subscriptions.getPlanDetails);
+
+    const currentPlan = planDetails?.plan ?? "starter";
+    const limits = planDetails?.limits ?? PLAN_LIMITS.starter;
+    const usage = planDetails?.usage;
 
     const updateUser = useMutation(api.users.createOrUpdateUser);
     const updatePrefs = useMutation(api.users.updatePreferences);
@@ -142,6 +151,34 @@ export default function DashboardPage() {
                     </Button>
                 </div>
             </header>
+
+            <UpsellBanner currentPlan={currentPlan} />
+
+            {currentPlan !== "starter" && (
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-default-400">Usage This Period</h3>
+                        <Chip
+                            variant="soft"
+                            color={currentPlan === "enterprise" ? "warning" : "success"}
+                            size="sm"
+                            className="font-black text-[9px] uppercase tracking-widest px-2 h-5"
+                        >
+                            {limits.label}
+                        </Chip>
+                    </div>
+                    <UsageBar
+                        label="AI Generations"
+                        current={usage?.aiGenerationsUsed ?? 0}
+                        limit={limits.aiGenerationsPerMonth}
+                    />
+                    <UsageBar
+                        label="Posts Published"
+                        current={usage?.postsPublished ?? 0}
+                        limit={limits.postsPerMonth}
+                    />
+                </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Connection Status */}

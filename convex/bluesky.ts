@@ -158,15 +158,22 @@ export const fetchCommentsForPost = internalAction({
 
             const threadData = await threadResponse.json();
 
+            if (threadData.thread?.$type === 'app.bsky.feed.defs#notFoundPost') {
+                console.error("Post not found:", args.postUri);
+                return [];
+            }
+
             // 3. Extract comments from the thread
             const comments: any[] = [];
 
-            function extractReplies(thread: any) {
-                if (!thread) return;
+            function extractReplies(node: any) {
+                if (!node || typeof node !== 'object') return;
 
-                if (thread.post && thread.post.replyCount > 0 && thread.replies) {
-                    for (const reply of thread.replies) {
-                        if (reply.post) {
+                // node.replies is an array of ThreadViewPost or other union types
+                if (Array.isArray(node.replies)) {
+                    for (const reply of node.replies) {
+                        // Check if it's a ThreadViewPost (most common)
+                        if (reply.post && reply.post.record) {
                             comments.push({
                                 uri: reply.post.uri,
                                 cid: reply.post.cid,
@@ -176,11 +183,11 @@ export const fetchCommentsForPost = internalAction({
                                     displayName: reply.post.author.displayName,
                                     avatar: reply.post.author.avatar,
                                 },
-                                content: reply.post.record?.text || "",
-                                createdAt: reply.post.record?.createdAt || "",
+                                content: reply.post.record.text || "",
+                                createdAt: reply.post.record.createdAt || new Date().toISOString(),
                             });
                         }
-                        // Recursively get nested replies
+                        // Recurse regardless of whether this specific node was a post
                         extractReplies(reply);
                     }
                 }
@@ -188,6 +195,7 @@ export const fetchCommentsForPost = internalAction({
 
             extractReplies(threadData.thread);
 
+            console.log(`Fetched ${comments.length} comments for ${args.postUri}`);
             return comments;
         } catch (error: any) {
             console.error("Bluesky fetch comments error:", error);
