@@ -32,6 +32,8 @@ export default defineSchema({
         maytapiProductId: v.optional(v.string()),
         maytapiPhoneId: v.optional(v.string()),
         maytapiApiToken: v.optional(v.string()),
+        customSystemPrompt: v.optional(v.string()),
+        customToneInstructions: v.optional(v.string()),
     }).index("by_userId", ["userId"]),
 
     pendingPosts: defineTable({

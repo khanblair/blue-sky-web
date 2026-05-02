@@ -73,6 +73,8 @@ export const updatePreferences = mutation({
         maytapiProductId: v.optional(v.string()),
         maytapiPhoneId: v.optional(v.string()),
         maytapiApiToken: v.optional(v.string()),
+        customSystemPrompt: v.optional(v.string()),
+        customToneInstructions: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -106,6 +108,8 @@ export const updatePreferences = mutation({
                 maytapiProductId: args.maytapiProductId,
                 maytapiPhoneId: args.maytapiPhoneId,
                 maytapiApiToken: args.maytapiApiToken,
+                customSystemPrompt: args.customSystemPrompt,
+                customToneInstructions: args.customToneInstructions,
             });
         }
     },

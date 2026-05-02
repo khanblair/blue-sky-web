@@ -7,18 +7,20 @@ import {
     CardContent,
     Button,
     Input,
+    TextArea,
     Label,
     TextFieldRoot,
     SwitchRoot,
     SwitchControl,
     SwitchThumb,
+    Tooltip,
 } from "@heroui/react";
-import { Sparkles, Zap, CalendarClock, Loader2, Cpu, Key, ChevronDown as ChevronDownIcon } from "lucide-react";
+import { Sparkles, Zap, CalendarClock, Loader2, Cpu, Key, Lock, MessageSquareQuote, Volume2, ChevronDown as ChevronDownIcon, Plus } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { NICHES, getNicheOptions, getSubcategories } from "@/lib/niches";
 import { HASHTAG_DATABASE, selectBestHashtags } from "@/lib/hashtags";
-import { PROVIDER_INFO } from "@/lib/plans";
+import { PROVIDER_INFO, PLAN_LIMITS, type PlanId } from "@/lib/plans";
 import { PlanGate, UpsellBanner } from "@/components/ui";
 
 const GENERATE_SUGGESTIONS = [
@@ -49,6 +51,9 @@ function IntervalPicker({
     onChange,
     suggestions,
     warning,
+    minAllowed = 1,
+    currentPlanLabel = "Starter",
+    canEdit = true,
 }: {
     label: string;
     description: string;
@@ -56,6 +61,9 @@ function IntervalPicker({
     onChange: (v: number) => void;
     suggestions: { label: string; value: number }[];
     warning?: string;
+    minAllowed?: number;
+    currentPlanLabel?: string;
+    canEdit?: boolean;
 }) {
     // Keep a raw string while the user is typing so we don't snap mid-keystroke
     const [raw, setRaw] = useState(value.toString());
@@ -66,46 +74,89 @@ function IntervalPicker({
     }, [value]);
 
     const commit = (str: string) => {
+        if (!canEdit) return;
         const parsed = parseInt(str, 10);
-        const clamped = isNaN(parsed) || parsed < 1 ? 1 : Math.min(parsed, 168);
+        let clamped = isNaN(parsed) || parsed < 1 ? 1 : Math.min(parsed, 168);
+        
+        // Enforce plan limit
+        if (clamped < minAllowed) {
+            clamped = minAllowed;
+        }
+        
         onChange(clamped);
         setRaw(clamped.toString());
     };
 
     return (
-        <TextFieldRoot className="flex flex-col gap-2">
+        <TextFieldRoot className={`flex flex-col gap-2 ${!canEdit ? "opacity-75" : ""}`}>
             <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">{label}</Label>
             <p className="text-[10px] text-default-500 italic">{description}</p>
             <div className="flex items-center gap-2">
                 <Input
                     type="number"
                     value={raw}
-                    onChange={(e) => setRaw(e.target.value)}
+                    onChange={(e) => canEdit && setRaw(e.target.value)}
                     onBlur={(e) => commit(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && commit((e.target as HTMLInputElement).value)}
                     className="bg-default-50 border-divider w-24"
-                    min={1}
+                    min={minAllowed}
                     max={168}
+                    disabled={!canEdit}
                 />
                 <span className="text-xs text-default-500 font-bold">hours</span>
+                {!canEdit && <Lock size={12} className="text-warning ml-1" />}
             </div>
             <div className="flex flex-wrap gap-1.5 mt-1">
-                {suggestions.map((s) => (
-                    <button
-                        key={s.value}
-                        type="button"
-                        onClick={() => onChange(s.value)}
-                        className={`h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors ${value === s.value
-                            ? "bg-primary border-primary text-white"
-                            : "bg-transparent border-divider text-default-400 hover:border-primary/50 hover:text-primary"
+                {suggestions.map((s) => {
+                    const isRestricted = s.value < minAllowed || !canEdit;
+                    const content = (
+                        <button
+                            key={s.value}
+                            type="button"
+                            disabled={isRestricted}
+                            onClick={() => !isRestricted && onChange(s.value)}
+                            className={`h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors flex items-center gap-1 ${
+                                value === s.value
+                                    ? "bg-primary border-primary text-white"
+                                    : isRestricted
+                                    ? "bg-default-100 border-divider text-default-300 cursor-not-allowed opacity-60"
+                                    : "bg-transparent border-divider text-default-400 hover:border-primary/50 hover:text-primary"
                             }`}
-                    >
-                        {s.label}
-                    </button>
-                ))}
+                        >
+                            {isRestricted && <Lock size={8} />}
+                            {s.label}
+                        </button>
+                    );
+
+                    if (isRestricted) {
+                        return (
+                            <Tooltip key={s.value} closeDelay={0}>
+                                <Tooltip.Trigger>
+                                    {content}
+                                </Tooltip.Trigger>
+                                <Tooltip.Content placement="top">
+                                    {!canEdit 
+                                        ? "Manual schedule settings require Pro tier." 
+                                        : `Requires higher tier (Current: ${currentPlanLabel} limit ${minAllowed}h)`}
+                                </Tooltip.Content>
+                            </Tooltip>
+                        );
+                    }
+
+                    return content;
+                })}
             </div>
             {warning && (
                 <p className="text-[10px] text-warning font-bold mt-1">{warning}</p>
+            )}
+            {!canEdit ? (
+                <p className="text-[9px] text-warning font-bold mt-0.5 uppercase tracking-wider flex items-center gap-1">
+                    <Lock size={8} /> Pro feature: Custom schedule intervals
+                </p>
+            ) : minAllowed > 1 && (
+                <p className="text-[9px] text-default-400 mt-0.5">
+                    * Your {currentPlanLabel} plan allows minimum {minAllowed}h interval.
+                </p>
             )}
         </TextFieldRoot>
     );
@@ -132,11 +183,19 @@ export default function AIPage() {
         goal: "educate",
         generateIntervalHours: 6,
         postIntervalHours: 8,
+        customSystemPrompt: "",
+        customToneInstructions: "",
     });
     const [isSaving, setIsSaving] = useState(false);
 
+    // Temp states for custom inputs
+    const [customGoal, setCustomGoal] = useState("");
+    const [customNiche, setCustomNiche] = useState("");
+    const [customSub, setCustomSub] = useState("");
+
     const planDetails = useQuery(api.subscriptions.getPlanDetails);
-    const currentPlan = planDetails?.plan ?? "starter";
+    const currentPlan = (planDetails?.plan as PlanId) ?? "starter";
+    const limits = planDetails?.limits ?? PLAN_LIMITS[currentPlan];
 
     const [selectedProvider, setSelectedProvider] = useState("openrouter");
     const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash-lite");
@@ -154,10 +213,17 @@ export default function AIPage() {
                 goal: preferences.goal ?? "educate",
                 generateIntervalHours: preferences.generateIntervalHours ?? 6,
                 postIntervalHours: preferences.postIntervalHours ?? 8,
+                customSystemPrompt: preferences.customSystemPrompt ?? "",
+                customToneInstructions: preferences.customToneInstructions ?? "",
             });
             setTopics(preferences.topics || []);
             setSubtopics(preferences.subtopics || []);
             setTags(preferences.tags || []);
+
+            // Check if goal is custom
+            if (preferences.goal && !SUGGESTED_GOALS.includes(preferences.goal)) {
+                setCustomGoal(preferences.goal);
+            }
         }, 0);
 
         return () => clearTimeout(timer);
@@ -169,15 +235,20 @@ export default function AIPage() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            // Determine final goal
+            const finalGoal = customGoal.trim() || localPrefs.goal;
+
             await updatePrefs({
                 topics,
                 subtopics,
                 tags,
                 tone: localPrefs.tone,
-                goal: localPrefs.goal,
+                goal: finalGoal,
                 frequency: localPrefs.generateIntervalHours, // keep legacy field in sync
                 generateIntervalHours: localPrefs.generateIntervalHours,
                 postIntervalHours: localPrefs.postIntervalHours,
+                customSystemPrompt: localPrefs.customSystemPrompt,
+                customToneInstructions: localPrefs.customToneInstructions,
             });
             alert("AI Preferences saved!");
         } catch {
@@ -223,7 +294,7 @@ export default function AIPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-8">
                     {/* Schedule */}
-                    <CardRoot className="bg-surface border-divider border">
+                    <CardRoot className="bg-surface border-divider border shadow-sm">
                         <CardHeader className="flex items-center justify-between p-6">
                             <div className="flex gap-3 font-black uppercase tracking-widest text-sm">
                                 <CalendarClock className="text-success" size={20} />
@@ -246,6 +317,9 @@ export default function AIPage() {
                                 value={localPrefs.generateIntervalHours}
                                 onChange={(v) => setLocalPrefs({ ...localPrefs, generateIntervalHours: v })}
                                 suggestions={GENERATE_SUGGESTIONS}
+                                minAllowed={limits.minGenerateIntervalHours}
+                                currentPlanLabel={limits.label}
+                                canEdit={['pro', 'standard', 'enterprise'].includes(currentPlan)}
                             />
                             <IntervalPicker
                                 label="Publish interval"
@@ -253,6 +327,9 @@ export default function AIPage() {
                                 value={localPrefs.postIntervalHours}
                                 onChange={(v) => setLocalPrefs({ ...localPrefs, postIntervalHours: v })}
                                 suggestions={POST_SUGGESTIONS}
+                                minAllowed={limits.minGenerateIntervalHours} // Using same limit for publishing
+                                currentPlanLabel={limits.label}
+                                canEdit={['pro', 'standard', 'enterprise'].includes(currentPlan)}
                                 warning={
                                     postTooFast
                                         ? "⚠ Publish interval is shorter than generate interval — posts may run out before new ones are ready."
@@ -263,7 +340,7 @@ export default function AIPage() {
                             {/* Tone */}
                             <TextFieldRoot className="flex flex-col gap-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">AI Voice Tone</Label>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {SUGGESTED_TONES.map((t) => (
                                         <Button
                                             key={t}
@@ -279,12 +356,70 @@ export default function AIPage() {
                         </CardContent>
                     </CardRoot>
 
+                    {/* Advanced AI Settings (Pro+) */}
+                    <PlanGate required="pro" currentPlan={currentPlan} fallback={
+                        <CardRoot className="bg-surface border-divider border opacity-70">
+                            <CardHeader className="flex gap-3 p-6">
+                                <MessageSquareQuote className="text-default-400" size={20} />
+                                <div className="flex flex-col text-left">
+                                    <p className="font-black uppercase tracking-widest text-sm text-default-400">Advanced AI Controls</p>
+                                    <p className="text-xs text-default-500">Custom prompts and fine-tuning</p>
+                                </div>
+                                <div className="ml-auto">
+                                    <Lock size={16} className="text-default-400" />
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <p className="text-[10px] text-default-500 font-bold uppercase text-center border border-dashed border-divider p-4 rounded-xl">
+                                    Upgrade to PRO to unlock custom system prompts and tone instructions.
+                                </p>
+                            </CardContent>
+                        </CardRoot>
+                    }>
+                        <CardRoot className="bg-surface border-divider border shadow-lg shadow-primary/5">
+                            <CardHeader className="flex gap-3 p-6">
+                                <MessageSquareQuote className="text-primary" size={20} />
+                                <div className="flex flex-col text-left">
+                                    <p className="font-black uppercase tracking-widest text-sm">Advanced AI Controls</p>
+                                    <p className="text-xs text-default-500">Fine-tune the AI&apos;s behavior</p>
+                                </div>
+                            </CardHeader>
+                            <div className="h-px bg-divider w-full" />
+                            <CardContent className="p-6 space-y-6">
+                                <TextFieldRoot className="flex flex-col gap-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-default-400 flex items-center gap-2">
+                                        <MessageSquareQuote size={12} /> Custom System Prompt
+                                    </Label>
+                                    <TextArea
+                                        placeholder="Act as a tech philosopher who focuses on decentralization..."
+                                        value={localPrefs.customSystemPrompt}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLocalPrefs({ ...localPrefs, customSystemPrompt: e.target.value })}
+                                        className="bg-default-50 border-divider min-h-[100px]"
+                                    />
+                                    <p className="text-[9px] text-default-400 italic">This overrides the default AI personality instructions.</p>
+                                </TextFieldRoot>
+
+                                <TextFieldRoot className="flex flex-col gap-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-default-400 flex items-center gap-2">
+                                        <Volume2 size={12} /> Custom Tone Instructions
+                                    </Label>
+                                    <TextArea
+                                        placeholder="Use short, punchy sentences. Avoid emojis. End with a question..."
+                                        value={localPrefs.customToneInstructions}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLocalPrefs({ ...localPrefs, customToneInstructions: e.target.value })}
+                                        className="bg-default-50 border-divider min-h-[80px]"
+                                    />
+                                </TextFieldRoot>
+                            </CardContent>
+                        </CardRoot>
+                    </PlanGate>
+
                     {/* System Status */}
                     <CardRoot className="bg-surface border-divider border">
                         <CardHeader className="flex gap-3 p-6">
                             <Zap className="text-warning" size={20} />
                             <div className="flex flex-col text-left">
-                                <p className="font-black uppercase tracking-widest text-sm">System Status</p>
+                                <p className="font-black uppercase tracking-widest text-sm text-white">System Status</p>
                                 <p className="text-xs text-default-500">Enable or disable automation globally</p>
                             </div>
                         </CardHeader>
@@ -323,7 +458,7 @@ export default function AIPage() {
                             </CardContent>
                         </CardRoot>
                     }>
-                        <CardRoot className="bg-surface border-divider border">
+                        <CardRoot className="bg-surface border-divider border shadow-sm">
                             <CardHeader className="flex gap-3 p-6">
                                 <Cpu className="text-primary" size={20} />
                                 <div className="flex flex-col text-left">
@@ -436,99 +571,336 @@ export default function AIPage() {
 
                 {/* Content Strategy */}
                 <div className="space-y-8">
-                    <CardRoot className="bg-surface border-divider border h-fit">
-                        <CardHeader className="flex gap-3 p-6">
-                            <Sparkles className="text-primary" size={20} />
-                            <div className="flex flex-col text-left">
-                                <p className="font-black uppercase tracking-widest text-sm">Content Strategy</p>
-                                <p className="text-xs text-default-500">Select topics to define your AI persona</p>
+                    <CardRoot className="bg-surface border-divider border h-fit shadow-sm">
+                        <CardHeader className="flex items-center justify-between p-6">
+                            <div className="flex gap-3">
+                                <Sparkles className="text-primary" size={20} />
+                                <div className="flex flex-col text-left">
+                                    <p className="font-black uppercase tracking-widest text-sm text-white">Content Strategy</p>
+                                    <p className="text-xs text-default-500">Define your AI persona and topics</p>
+                                </div>
                             </div>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-[10px] font-black uppercase tracking-widest text-danger hover:bg-danger/10"
+                                onPress={() => {
+                                    setTopics([]);
+                                    setSubtopics([]);
+                                    setTags([]);
+                                    setLocalPrefs({ ...localPrefs, goal: "educate" });
+                                    setCustomGoal("");
+                                    setCustomNiche("");
+                                    setCustomSub("");
+                                }}
+                            >
+                                Clear All
+                            </Button>
                         </CardHeader>
                         <div className="h-px bg-divider w-full" />
                         <CardContent className="p-6 space-y-8">
+                            {/* Plan Guidance Note */}
+                            <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-start gap-3">
+                                <Zap className="text-primary mt-1" size={16} />
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                        Plan Guidance: {limits.label} Tier
+                                    </p>
+                                    <p className="text-xs text-default-600 leading-relaxed">
+                                        Your current plan allows up to <span className="font-bold text-white">{limits.maxTopics}</span> primary niches and <span className="font-bold text-white">{limits.maxSubtopics}</span> sub-categories.
+                                        {currentPlan === 'starter' && " Upgrade for broader content reach."}
+                                    </p>
+                                </div>
+                            </div>
+
                             {/* Primary Goal */}
                             <TextFieldRoot className="flex flex-col gap-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Primary Goal</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Primary Goal</Label>
+                                    <button 
+                                        onClick={() => { setLocalPrefs({ ...localPrefs, goal: "educate" }); setCustomGoal(""); }}
+                                        className="text-[9px] font-black uppercase tracking-widest text-default-400 hover:text-danger transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {SUGGESTED_GOALS.map((g) => (
                                         <Button
                                             key={g}
-                                            variant={localPrefs.goal === g ? "primary" : "outline"}
+                                            variant={localPrefs.goal === g && !customGoal ? "primary" : "outline"}
                                             className="font-bold uppercase text-[10px] tracking-widest h-9"
-                                            onPress={() => setLocalPrefs({ ...localPrefs, goal: g })}
+                                            onPress={() => {
+                                                setLocalPrefs({ ...localPrefs, goal: g });
+                                                setCustomGoal("");
+                                            }}
                                         >
                                             {g}
                                         </Button>
                                     ))}
                                 </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                    <Input
+                                        placeholder="Or enter custom goal..."
+                                        value={customGoal}
+                                        onChange={(e) => setCustomGoal(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && customGoal.trim()) {
+                                                setLocalPrefs({ ...localPrefs, goal: customGoal.trim() });
+                                            }
+                                        }}
+                                        className="h-8 text-[10px] bg-default-50/50 border-divider font-bold uppercase tracking-widest"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 min-w-0 px-2"
+                                        onPress={() => {
+                                            if (customGoal.trim()) {
+                                                setLocalPrefs({ ...localPrefs, goal: customGoal.trim() });
+                                            }
+                                        }}
+                                    >
+                                        <Plus size={14} />
+                                    </Button>
+                                    {(customGoal === localPrefs.goal || (customGoal && localPrefs.goal === customGoal)) && (
+                                        <Sparkles size={14} className="text-primary animate-pulse shrink-0" />
+                                    )}
+                                </div>
                             </TextFieldRoot>
 
                             {/* Niches */}
                             <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Primary Niche</Label>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Primary Niches</Label>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-default-400 opacity-60">
+                                            {topics.length} / {limits.maxTopics}
+                                        </span>
+                                    </div>
+                                    <button 
+                                        onClick={() => { setTopics([]); setSubtopics([]); setCustomNiche(""); }}
+                                        className="text-[9px] font-black uppercase tracking-widest text-default-400 hover:text-danger transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
                                 <div className="flex flex-wrap gap-2">
                                     {getNicheOptions().map(({ value, label }) => {
-                                        const isSelected = activeNicheKey === value;
+                                        const isSelected = topics.includes(value);
+                                        const isAtLimit = topics.length >= limits.maxTopics;
+                                        const isRestricted = !isSelected && isAtLimit;
+
                                         return (
                                             <button
                                                 key={value}
                                                 type="button"
+                                                disabled={isRestricted}
                                                 onClick={() => {
-                                                    setTopics([value]);
-                                                    setSubtopics([]);
-                                                    setTags([]);
+                                                    if (isSelected) {
+                                                        setTopics(topics.filter(t => t !== value));
+                                                        setSubtopics([]);
+                                                    } else if (!isRestricted) {
+                                                        setTopics([...topics, value]);
+                                                    }
                                                 }}
-                                                className={`h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all duration-200 ${isSelected
+                                                className={`h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all duration-200 flex items-center gap-1 ${isSelected
                                                     ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                                    : isRestricted
+                                                    ? "bg-default-100 border-divider text-default-300 cursor-not-allowed opacity-60"
                                                     : "bg-transparent border-divider text-default-500 hover:border-primary/50 hover:text-primary"
                                                     }`}
                                             >
+                                                {isRestricted && <Lock size={8} />}
                                                 {label}
                                             </button>
                                         );
                                     })}
+                                    {/* Render custom niches if selected and not in predefined list */}
+                                    {topics.filter(t => !getNicheOptions().map(n => n.value).includes(t)).map(custom => (
+                                        <button
+                                            key={`custom-niche-${custom}`}
+                                            type="button"
+                                            onClick={() => setTopics(topics.filter(t => t !== custom))}
+                                            className="h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-widest border bg-primary border-primary text-white shadow-lg shadow-primary/20 flex items-center gap-1"
+                                        >
+                                            {custom}
+                                            <span className="opacity-60 ml-1 font-bold text-xs">×</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                    <Input
+                                        placeholder="Add custom niche..."
+                                        value={customNiche}
+                                        onChange={(e) => setCustomNiche(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && customNiche.trim()) {
+                                                const val = customNiche.trim();
+                                                if (topics.length < limits.maxTopics && !topics.includes(val)) {
+                                                    setTopics([...topics, val]);
+                                                    setCustomNiche("");
+                                                }
+                                            }
+                                        }}
+                                        className="h-8 text-[10px] bg-default-50/50 border-divider font-bold uppercase tracking-widest"
+                                        disabled={topics.length >= limits.maxTopics}
+                                    />
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 min-w-0 px-2"
+                                        onPress={() => {
+                                            const val = customNiche.trim();
+                                            if (val && topics.length < limits.maxTopics && !topics.includes(val)) {
+                                                setTopics([...topics, val]);
+                                                setCustomNiche("");
+                                            }
+                                        }}
+                                        isDisabled={topics.length >= limits.maxTopics}
+                                    >
+                                        <Plus size={14} />
+                                    </Button>
                                 </div>
                             </div>
 
                             {/* Subcategories */}
-                            {activeNicheKey && (
+                            {topics.length > 0 && (
                                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-400">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-default-400 opacity-60">Sub-Categories</Label>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-default-400 opacity-60">Sub-Categories</Label>
+                                            <p className="text-[9px] text-default-500 italic">Based on your selected niches</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-default-400">
+                                                {activeSubcategories.length} / {limits.maxSubtopics}
+                                            </span>
+                                            <button 
+                                                onClick={() => { setSubtopics([]); setCustomSub(""); }}
+                                                className="text-[9px] font-black uppercase tracking-widest text-default-400 hover:text-danger transition-colors"
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {getSubcategories(activeNicheKey).map((sub) => {
+                                        {/* Get subcategories for ALL selected niches */}
+                                        {Array.from(new Set(topics.flatMap(t => getSubcategories(t)))).map((sub) => {
                                             const isSelected = activeSubcategories.includes(sub);
-                                            return (
+                                            const isAtLimit = activeSubcategories.length >= limits.maxSubtopics;
+                                            const isRestricted = !isSelected && isAtLimit;
+
+                                            const content = (
                                                 <button
                                                     key={sub}
                                                     type="button"
+                                                    disabled={isRestricted}
                                                     onClick={() => {
+                                                        if (isRestricted) return;
                                                         let next;
                                                         if (isSelected) {
                                                             next = activeSubcategories.filter(x => x !== sub);
                                                         } else {
                                                             next = [...activeSubcategories, sub];
-                                                            const nicheTags = HASHTAG_DATABASE[activeNicheKey]?.[sub] || [];
-                                                            const newTags = Array.from(new Set([...tags, ...nicheTags]));
-                                                            setTags(newTags.slice(0, 10));
+                                                            // Find which niche this sub belongs to for tags
+                                                            const parentNiche = topics.find(t => getSubcategories(t).includes(sub));
+                                                            if (parentNiche) {
+                                                                const nicheTags = HASHTAG_DATABASE[parentNiche]?.[sub] || [];
+                                                                const newTags = Array.from(new Set([...tags, ...nicheTags]));
+                                                                setTags(newTags.slice(0, 10));
+                                                            }
                                                         }
                                                         setSubtopics(next);
                                                     }}
-                                                    className={`h-7 px-3 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all duration-200 ${isSelected
-                                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                                                        : "bg-transparent border-divider text-default-400 hover:border-primary/50 hover:text-primary"
-                                                        }`}
+                                                    className={`h-7 px-3 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all duration-200 flex items-center gap-1 ${
+                                                        isSelected
+                                                            ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                                            : isRestricted
+                                                            ? "bg-default-100 border-divider text-default-300 cursor-not-allowed opacity-60"
+                                                            : "bg-transparent border-divider text-default-400 hover:border-primary/50 hover:text-primary"
+                                                    }`}
                                                 >
+                                                    {isRestricted && <Lock size={8} />}
                                                     {sub}
                                                 </button>
                                             );
+
+                                            if (isRestricted) {
+                                                return (
+                                                    <Tooltip key={sub}>
+                                                        <Tooltip.Trigger>
+                                                            {content}
+                                                        </Tooltip.Trigger>
+                                                        <Tooltip.Content placement="top">
+                                                            {`${limits.label} plan limit: ${limits.maxSubtopics} sub-categories. Upgrade for more.`}
+                                                        </Tooltip.Content>
+                                                    </Tooltip>
+                                                );
+                                            }
+
+                                            return content;
                                         })}
+                                        {/* Custom Sub-category inside suggested list area */}
+                                        {activeSubcategories.filter(s => !topics.some(t => getSubcategories(t).includes(s))).map(custom => (
+                                            <button
+                                                key={custom}
+                                                type="button"
+                                                onClick={() => setSubtopics(activeSubcategories.filter(x => x !== custom))}
+                                                className="h-7 px-3 rounded-full text-[10px] font-bold uppercase tracking-widest border bg-primary border-primary text-white shadow-lg shadow-primary/20 flex items-center gap-1"
+                                            >
+                                                {custom}
+                                                <span className="opacity-60 ml-1 font-bold text-xs">×</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <Input
+                                            placeholder="Add custom sub-category..."
+                                            value={customSub}
+                                            onChange={(e) => setCustomSub(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" && customSub.trim()) {
+                                                    const val = customSub.trim();
+                                                    if (activeSubcategories.length < limits.maxSubtopics && !activeSubcategories.includes(val)) {
+                                                        setSubtopics([...activeSubcategories, val]);
+                                                        setCustomSub("");
+                                                    }
+                                                }
+                                            }}
+                                            className="h-8 text-[10px] bg-default-50/50 border-divider font-bold uppercase tracking-widest"
+                                            disabled={activeSubcategories.length >= limits.maxSubtopics}
+                                        />
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 min-w-0 px-2"
+                                            onPress={() => {
+                                                const val = customSub.trim();
+                                                if (val && activeSubcategories.length < limits.maxSubtopics && !activeSubcategories.includes(val)) {
+                                                    setSubtopics([...activeSubcategories, val]);
+                                                    setCustomSub("");
+                                                }
+                                            }}
+                                            isDisabled={activeSubcategories.length >= limits.maxSubtopics}
+                                        >
+                                            <Plus size={14} />
+                                        </Button>
                                     </div>
                                 </div>
                             )}
 
                             {/* Tags */}
                             <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Hashtags Pool</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Hashtags Pool</Label>
+                                    <button 
+                                        onClick={() => { setTags([]); }}
+                                        className="text-[9px] font-black uppercase tracking-widest text-default-400 hover:text-danger transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
                                 <div className="p-4 bg-default-50 border border-divider rounded-2xl">
                                     <div className="flex flex-wrap gap-2 mb-4">
                                         {tags.map(tag => (

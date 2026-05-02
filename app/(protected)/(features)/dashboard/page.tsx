@@ -70,10 +70,17 @@ export default function DashboardPage() {
     }, [preferences]);
 
     const handleSavePreferences = async () => {
+        const topics = topicsStr.split(",").map(t => t.trim()).filter(Boolean);
+        
+        if (topics.length > limits.maxTopics) {
+            alert(`Your ${limits.label} plan allows a maximum of ${limits.maxTopics} topics. Please upgrade for more.`);
+            return;
+        }
+
         setIsSaving(true);
         try {
             await updatePrefs({
-                topics: topicsStr.split(",").map(t => t.trim()).filter(Boolean),
+                topics,
                 tone: localPrefs.tone,
                 frequency: localPrefs.frequency,
             });
@@ -291,9 +298,21 @@ export default function DashboardPage() {
                                             placeholder="24"
                                             type="number"
                                             value={localPrefs.frequency.toString()}
-                                            onChange={(e) => setLocalPrefs({ ...localPrefs, frequency: parseInt(e.target.value) || 1 })}
+                                            min={limits.minGenerateIntervalHours}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value) || 1;
+                                                setLocalPrefs({ ...localPrefs, frequency: val });
+                                            }}
+                                            onBlur={(e) => {
+                                                const val = parseInt(e.target.value) || 1;
+                                                const clamped = Math.max(val, limits.minGenerateIntervalHours);
+                                                setLocalPrefs({ ...localPrefs, frequency: clamped });
+                                            }}
                                             className="bg-default-50 border-divider"
                                         />
+                                        <p className="text-[9px] text-default-500 italic">
+                                            * Minimum {limits.minGenerateIntervalHours}h for {limits.label} plan.
+                                        </p>
                                     </div>
                                 </div>
                                 <Button
