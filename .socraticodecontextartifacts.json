@@ -1,0 +1,9 @@
+{
+  "artifacts": [
+    {
+      "name": "bluesky-app-guide",
+      "path": "./docs/bluesky-app-guide.md",
+      "description": "Full architecture guide covering Convex backend, Bluesky AT Protocol, OpenRouter AI integration, cron automation, and end-to-end data flow."
+    }
+  ]
+}

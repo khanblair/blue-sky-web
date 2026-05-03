@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "socraticode": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "socraticode"
+      ],
+      "env": {
+        "SOCRATICODE_PROJECT_ID": "blue-sky-web"
+      }
+    }
+  }
+}
