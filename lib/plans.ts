@@ -14,6 +14,10 @@ export interface PlanLimit {
     label: string;
     description: string;
     features: string[];
+    autoReply: boolean;
+    autoRepliesPerMonth: number;
+    reciprocalEngagement: boolean;
+    reciprocalEngagementsPerMonth: number;
 }
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
@@ -38,6 +42,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
             "\"Powered by BlueSky AI\" watermark",
             "Community support",
         ],
+        autoReply: false,
+        autoRepliesPerMonth: 0,
+        reciprocalEngagement: false,
+        reciprocalEngagementsPerMonth: 0,
     },
     lite: {
         postsPerMonth: 20,
@@ -60,6 +68,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
             "\"Powered by BlueSky AI\" watermark",
             "Email support",
         ],
+        autoReply: true,
+        autoRepliesPerMonth: 5,
+        reciprocalEngagement: false,
+        reciprocalEngagementsPerMonth: 0,
     },
     basic: {
         postsPerMonth: 50,
@@ -83,6 +95,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
             "Email support",
             "Post scheduling",
         ],
+        autoReply: true,
+        autoRepliesPerMonth: 20,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: 10,
     },
     pro: {
         postsPerMonth: 150,
@@ -107,6 +123,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
             "No watermark",
             "Priority support",
         ],
+        autoReply: true,
+        autoRepliesPerMonth: 100,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: 50,
     },
     standard: {
         postsPerMonth: 500,
@@ -132,6 +152,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
             "Priority support",
             "Advanced scheduling",
         ],
+        autoReply: true,
+        autoRepliesPerMonth: 300,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: 150,
     },
     enterprise: {
         postsPerMonth: Infinity,
@@ -159,6 +183,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
             "API access",
             "Team management (coming soon)",
         ],
+        autoReply: true,
+        autoRepliesPerMonth: Infinity,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: Infinity,
     },
 };
 

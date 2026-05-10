@@ -11,12 +11,14 @@ import {
     FileText,
     Sparkles,
     WalletCards,
+    Users,
 } from "lucide-react";
 
 const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Schedule", href: "/schedule", icon: Calendar },
     { name: "Posts", href: "/posts", icon: FileText },
+    { name: "People", href: "/people", icon: Users },
     { name: "AI Config", href: "/ai", icon: Sparkles },
     { name: "Billing", href: "/billing", icon: WalletCards },
 ];

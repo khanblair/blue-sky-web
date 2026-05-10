@@ -48,6 +48,7 @@ export default defineSchema({
         userId: v.id("users"),
         content: v.string(),
         blueskyUri: v.optional(v.string()),
+        blueskyCid: v.optional(v.string()),
         status: v.string(), // "success" | "failed"
         error: v.optional(v.string()),
         timestamp: v.number(),
@@ -97,6 +98,8 @@ export default defineSchema({
         postsGenerated: v.number(),
         postsPublished: v.number(),
         aiGenerationsUsed: v.number(),
+        autoRepliesUsed: v.optional(v.number()),
+        reciprocalEngagementsUsed: v.optional(v.number()),
     }).index("by_userId", ["userId"])
         .index("by_userId_periodStart", ["userId", "periodStart"]),
 
@@ -112,4 +115,57 @@ export default defineSchema({
         updatedAt: v.number(),
     }).index("by_userId", ["userId"])
         .index("by_userId_active", ["userId", "isActive"]),
+
+    likes: defineTable({
+        userId: v.id("users"),
+        postHistoryId: v.optional(v.id("postHistory")),
+        blueskyUri: v.string(),
+        likedPostUri: v.string(),
+        authorDid: v.string(),
+        authorHandle: v.optional(v.string()),
+        authorDisplayName: v.optional(v.string()),
+        authorAvatar: v.optional(v.string()),
+        indexedAt: v.number(),
+    }).index("by_postHistoryId", ["postHistoryId"])
+        .index("by_likedPostUri", ["likedPostUri"])
+        .index("by_authorDid", ["authorDid"])
+        .index("by_userId", ["userId"]),
+
+    replies: defineTable({
+        userId: v.id("users"),
+        commentId: v.id("comments"),
+        content: v.string(),
+        blueskyUri: v.optional(v.string()),
+        status: v.string(), // "pending" | "posted" | "failed"
+        createdAt: v.number(),
+    }).index("by_commentId", ["commentId"])
+        .index("by_userId", ["userId"]),
+
+    engagementLog: defineTable({
+        userId: v.id("users"),
+        targetDid: v.string(),
+        targetHandle: v.optional(v.string()),
+        targetDisplayName: v.optional(v.string()),
+        targetAvatar: v.optional(v.string()),
+        targetPostUri: v.optional(v.string()),
+        actionType: v.string(), // "reply" | "reciprocal_comment" | "reciprocal_like"
+        content: v.optional(v.string()),
+        blueskyUri: v.optional(v.string()),
+        status: v.string(), // "success" | "failed" | "skipped"
+        error: v.optional(v.string()),
+        createdAt: v.number(),
+    }).index("by_userId", ["userId"])
+        .index("by_targetDid", ["targetDid"])
+        .index("by_userId_targetDid", ["userId", "targetDid"])
+        .index("by_userId_actionType", ["userId", "actionType"]),
+
+    engagementSettings: defineTable({
+        userId: v.id("users"),
+        autoReplyEnabled: v.boolean(),
+        reciprocalEngagementEnabled: v.boolean(),
+        replyTone: v.string(), // "friendly" | "professional" | "witty" | "casual"
+        maxReciprocalPerRun: v.number(),
+        engagementCooldownHours: v.number(),
+        lastEngagementRun: v.optional(v.number()),
+    }).index("by_userId", ["userId"]),
 });

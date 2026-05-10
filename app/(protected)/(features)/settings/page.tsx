@@ -9,9 +9,7 @@ import {
     Input,
     Label,
     TextFieldRoot,
-    SwitchRoot,
-    SwitchControl,
-    SwitchThumb,
+    Switch,
     Chip,
 } from "@heroui/react";
 import {
@@ -28,7 +26,8 @@ import {
     Loader2,
     MessageCircle,
     Smartphone,
-    Send
+    Send,
+    ArrowRightLeft,
 } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -41,6 +40,8 @@ export default function SettingsPage() {
     const updateCredentials = useMutation(api.users.createOrUpdateUser);
     const syncProfile = useAction(api.bluesky?.syncProfile);
     const updatePrefs = useMutation(api.users.updatePreferences);
+    const engagementSettings = useQuery(api.engagement.getEngagementSettings);
+    const updateEngagementSettings = useMutation(api.engagement.updateEngagementSettings);
 
     const [handle, setHandle] = useState("");
     const [password, setPassword] = useState("");
@@ -62,6 +63,14 @@ export default function SettingsPage() {
     const [maytapiPhoneId, setMaytapiPhoneId] = useState("");
     const [maytapiApiToken, setMaytapiApiToken] = useState("");
 
+    // Engagement settings state
+    const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+    const [reciprocalEngagementEnabled, setReciprocalEngagementEnabled] = useState(false);
+    const [replyTone, setReplyTone] = useState("friendly");
+    const [maxReciprocalPerRun, setMaxReciprocalPerRun] = useState(5);
+    const [engagementCooldownHours, setEngagementCooldownHours] = useState(48);
+    const [isSavingEngagement, setIsSavingEngagement] = useState(false);
+
     useEffect(() => {
         if (!user && !preferences) return;
         
@@ -82,9 +91,23 @@ export default function SettingsPage() {
                 setMaytapiApiToken(preferences.maytapiApiToken || integrationDefaults?.maytapiApiToken || "");
             }
         }, 0);
-        
+
         return () => clearTimeout(timer);
     }, [user, preferences, integrationDefaults]);
+
+    useEffect(() => {
+        const apply = () => {
+            if (engagementSettings) {
+                setAutoReplyEnabled(engagementSettings.autoReplyEnabled);
+                setReciprocalEngagementEnabled(engagementSettings.reciprocalEngagementEnabled);
+                setReplyTone(engagementSettings.replyTone);
+                setMaxReciprocalPerRun(engagementSettings.maxReciprocalPerRun);
+                setEngagementCooldownHours(engagementSettings.engagementCooldownHours);
+            }
+        };
+        const id = requestAnimationFrame(apply);
+        return () => cancelAnimationFrame(id);
+    }, [engagementSettings]);
 
     const handleUpdateCredentials = async () => {
         setIsUpdatingCreds(true);
@@ -139,6 +162,24 @@ export default function SettingsPage() {
             alert("Failed to save preferences");
         } finally {
             setIsSavingPrefs(false);
+        }
+    };
+
+    const handleSaveEngagement = async () => {
+        setIsSavingEngagement(true);
+        try {
+            await updateEngagementSettings({
+                autoReplyEnabled,
+                reciprocalEngagementEnabled,
+                replyTone,
+                maxReciprocalPerRun,
+                engagementCooldownHours,
+            });
+            alert("Engagement settings saved!");
+        } catch (err: unknown) {
+            alert("Failed to save engagement settings");
+        } finally {
+            setIsSavingEngagement(false);
         }
     };
 
@@ -345,6 +386,107 @@ export default function SettingsPage() {
                             </>
                         ) : (
                             "Save Integrations"
+                        )}
+                    </Button>
+                </CardContent>
+            </CardRoot>
+
+            {/* Engagement Settings */}
+            <CardRoot className="bg-surface border-divider border">
+                <CardHeader className="flex flex-col items-start gap-1 p-6">
+                    <div className="flex items-center gap-3">
+                        <ArrowRightLeft className="text-primary" size={20} />
+                        <p className="font-black uppercase tracking-widest text-sm">Engagement Engine</p>
+                    </div>
+                    <p className="text-xs text-default-500">Configure AI-powered auto-replies and reciprocal engagement</p>
+                </CardHeader>
+                <div className="h-px bg-divider w-full" />
+                <CardContent className="p-6 space-y-6">
+                    {/* Auto-Reply Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                        <div className="space-y-0.5">
+                            <p className="text-xs font-black uppercase tracking-tight">Auto-Reply to Comments</p>
+                            <p className="text-[10px] text-default-500">AI generates contextual replies to people who comment on your posts</p>
+                        </div>
+                        <Switch
+                            isSelected={autoReplyEnabled}
+                            onChange={setAutoReplyEnabled}
+                        />
+                    </div>
+
+                    {/* Reciprocal Engagement Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-success/5 rounded-2xl border border-success/10">
+                        <div className="space-y-0.5">
+                            <p className="text-xs font-black uppercase tracking-tight">Reciprocal Engagement</p>
+                            <p className="text-[10px] text-default-500">Visit commenters&apos; profiles and engage with their latest posts</p>
+                        </div>
+                        <Switch
+                            isSelected={reciprocalEngagementEnabled}
+                            onChange={setReciprocalEngagementEnabled}
+                        />
+                    </div>
+
+                    {/* Reply Tone */}
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Reply Tone</Label>
+                        <div className="flex gap-2 flex-wrap">
+                            {["friendly", "professional", "witty", "casual"].map((t) => (
+                                <button
+                                    key={t}
+                                    onClick={() => setReplyTone(t)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
+                                        replyTone === t
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
+                                    }`}
+                                >
+                                    {t}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Config Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <TextFieldRoot className="flex flex-col gap-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Max Reciprocal Per Run</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={10}
+                                value={String(maxReciprocalPerRun)}
+                                onChange={(e) => setMaxReciprocalPerRun(parseInt(e.target.value) || 5)}
+                                className="bg-default-50 border-divider"
+                            />
+                            <p className="text-[10px] text-default-400">How many people to engage with per cron cycle (1-10)</p>
+                        </TextFieldRoot>
+                        <TextFieldRoot className="flex flex-col gap-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Cooldown (Hours)</Label>
+                            <Input
+                                type="number"
+                                min={12}
+                                max={168}
+                                value={String(engagementCooldownHours)}
+                                onChange={(e) => setEngagementCooldownHours(parseInt(e.target.value) || 48)}
+                                className="bg-default-50 border-divider"
+                            />
+                            <p className="text-[10px] text-default-400">Hours before re-engaging the same person (12-168)</p>
+                        </TextFieldRoot>
+                    </div>
+
+                    <Button
+                        variant="primary"
+                        className="w-full font-black uppercase tracking-widest text-xs h-11"
+                        onPress={handleSaveEngagement}
+                        isDisabled={isSavingEngagement}
+                    >
+                        {isSavingEngagement ? (
+                            <>
+                                <Loader2 className="animate-spin mr-2" size={16} />
+                                Saving...
+                            </>
+                        ) : (
+                            "Save Engagement Settings"
                         )}
                     </Button>
                 </CardContent>

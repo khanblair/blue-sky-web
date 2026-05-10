@@ -13,6 +13,10 @@ export interface PlanLimit {
     priceUsd: number;
     label: string;
     description: string;
+    autoReply: boolean;
+    autoRepliesPerMonth: number;
+    reciprocalEngagement: boolean;
+    reciprocalEngagementsPerMonth: number;
 }
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
@@ -29,6 +33,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
         priceUsd: 0,
         label: "Starter",
         description: "Try it out — limited features, no cost",
+        autoReply: false,
+        autoRepliesPerMonth: 0,
+        reciprocalEngagement: false,
+        reciprocalEngagementsPerMonth: 0,
     },
     lite: {
         postsPerMonth: 20,
@@ -43,6 +51,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
         priceUsd: 2,
         label: "Lite",
         description: "A step up from free — more posts, more generations",
+        autoReply: true,
+        autoRepliesPerMonth: 5,
+        reciprocalEngagement: false,
+        reciprocalEngagementsPerMonth: 0,
     },
     basic: {
         postsPerMonth: 50,
@@ -57,6 +69,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
         priceUsd: 5,
         label: "Basic",
         description: "For casual creators getting started",
+        autoReply: true,
+        autoRepliesPerMonth: 20,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: 10,
     },
     pro: {
         postsPerMonth: 150,
@@ -71,6 +87,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
         priceUsd: 10,
         label: "Pro",
         description: "For serious creators who post regularly",
+        autoReply: true,
+        autoRepliesPerMonth: 100,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: 50,
     },
     standard: {
         postsPerMonth: 500,
@@ -85,6 +105,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
         priceUsd: 15,
         label: "Standard",
         description: "For power users managing multiple accounts",
+        autoReply: true,
+        autoRepliesPerMonth: 300,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: 150,
     },
     enterprise: {
         postsPerMonth: Infinity,
@@ -99,6 +123,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimit> = {
         priceUsd: 20,
         label: "Enterprise",
         description: "Unlimited everything — for agencies and teams",
+        autoReply: true,
+        autoRepliesPerMonth: Infinity,
+        reciprocalEngagement: true,
+        reciprocalEngagementsPerMonth: Infinity,
     },
 };
 

@@ -377,3 +377,135 @@ export const deleteProviderConfig = mutation({
         return true;
     },
 });
+
+export const generateReply = internalAction({
+    args: {
+        originalPostContent: v.string(),
+        commentContent: v.string(),
+        commentAuthorHandle: v.optional(v.string()),
+        tone: v.string(),
+        userId: v.id("users"),
+    },
+    handler: async (ctx, args): Promise<string> => {
+        const { provider, model, apiKey, temperature, maxTokens } = await ctx.runQuery(
+            internal.aiGeneration.getActiveAiConfig,
+            { userId: args.userId }
+        );
+
+        if (!apiKey) throw new Error(`No API key available for provider: ${provider}`);
+
+        const providerConfig = PROVIDER_REGISTRY[provider];
+        if (!providerConfig) throw new Error(`Unknown AI provider: ${provider}`);
+
+        const authorRef = args.commentAuthorHandle
+            ? `The commenter's handle is @${args.commentAuthorHandle}.`
+            : "";
+
+        const prompt = `You are a social media expert replying to a comment on a Bluesky post. Be natural, human, and authentic.
+
+## CONTEXT
+Your original post: "${args.originalPostContent}"
+The comment you are replying to: "${args.commentContent}"
+${authorRef}
+
+## CONSTRAINTS
+- Use a ${args.tone} tone.
+- Keep it concise: 100-200 characters maximum.
+- Be genuinely conversational and contextual — reference what they said.
+- Never sound like a bot or use generic responses like "Great point!" or "Thanks for sharing!".
+- ${args.commentAuthorHandle ? `Address them by name or reference their handle naturally.` : "Engage with their specific point."}
+- End with a question or open-ended prompt when it feels natural to encourage conversation.
+- Do NOT use hashtags in replies.
+
+Return ONLY the reply text.`;
+
+        const body = providerConfig.bodyTransform(
+            model,
+            [{ role: "user", content: prompt }],
+            { temperature: temperature ?? 0.9, maxTokens: maxTokens ?? 256 }
+        );
+
+        const response = await fetch(providerConfig.baseUrl, {
+            method: "POST",
+            headers: providerConfig.authHeader(apiKey),
+            body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`${providerConfig.name} API error (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+        const content = providerConfig.responseParse(data);
+
+        if (!content) throw new Error(`No content returned from ${providerConfig.name}`);
+
+        return content;
+    },
+});
+
+export const generateReciprocalComment = internalAction({
+    args: {
+        targetPostContent: v.string(),
+        targetAuthorHandle: v.optional(v.string()),
+        tone: v.string(),
+        userId: v.id("users"),
+    },
+    handler: async (ctx, args): Promise<string> => {
+        const { provider, model, apiKey, temperature, maxTokens } = await ctx.runQuery(
+            internal.aiGeneration.getActiveAiConfig,
+            { userId: args.userId }
+        );
+
+        if (!apiKey) throw new Error(`No API key available for provider: ${provider}`);
+
+        const providerConfig = PROVIDER_REGISTRY[provider];
+        if (!providerConfig) throw new Error(`Unknown AI provider: ${provider}`);
+
+        const authorRef = args.targetAuthorHandle
+            ? `The post author's handle is @${args.targetAuthorHandle}.`
+            : "";
+
+        const prompt = `You are leaving a thoughtful comment on someone else's Bluesky post. You are building a genuine social media presence.
+
+## CONTEXT
+Their post: "${args.targetPostContent}"
+${authorRef}
+
+## CONSTRAINTS
+- Use a ${args.tone} tone.
+- Keep it concise: 100-200 characters maximum.
+- Be relevant to the post's topic — add a perspective, insight, or thoughtful question.
+- Never mention automation, bots, or that this is AI-generated.
+- Be genuinely conversational — sound like a real person who read and appreciated their content.
+- Do NOT use hashtags.
+- Do NOT be overly flattering or sycophantic.
+
+Return ONLY the comment text.`;
+
+        const body = providerConfig.bodyTransform(
+            model,
+            [{ role: "user", content: prompt }],
+            { temperature: temperature ?? 0.9, maxTokens: maxTokens ?? 256 }
+        );
+
+        const response = await fetch(providerConfig.baseUrl, {
+            method: "POST",
+            headers: providerConfig.authHeader(apiKey),
+            body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`${providerConfig.name} API error (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+        const content = providerConfig.responseParse(data);
+
+        if (!content) throw new Error(`No content returned from ${providerConfig.name}`);
+
+        return content;
+    },
+});

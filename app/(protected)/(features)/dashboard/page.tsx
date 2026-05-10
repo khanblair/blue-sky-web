@@ -25,6 +25,7 @@ import {
     Loader2,
     Zap,
     Crown,
+    Users,
 } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -38,6 +39,7 @@ export default function DashboardPage() {
     const stats = useQuery(api.posting.getStats);
     const history = useQuery(api.posting.getPostHistory);
     const planDetails = useQuery(api.subscriptions.getPlanDetails);
+    const engagementStats = useQuery(api.engagement.getEngagementStats);
 
     const currentPlan = planDetails?.plan ?? "starter";
     const limits = planDetails?.limits ?? PLAN_LIMITS.starter;
@@ -190,7 +192,7 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Connection Status */}
                 <CardRoot className="bg-surface border border-divider/50">
                     <CardContent className="flex flex-row items-center gap-4 p-6 overflow-hidden">
@@ -247,6 +249,19 @@ export default function DashboardPage() {
                                     ? nextScheduledDate.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                                     : "Not Scheduled"}
                             </p>
+                        </div>
+                    </CardContent>
+                </CardRoot>
+
+                {/* People Reached */}
+                <CardRoot className="bg-surface border border-divider/50">
+                    <CardContent className="flex flex-row items-center gap-4 p-6">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                            <Users className="text-blue-500" />
+                        </div>
+                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                            <p className="text-[9px] text-default-500 font-black uppercase tracking-widest mb-1 opacity-70">People Reached</p>
+                            <p className="text-2xl font-black text-blue-500 leading-none">{engagementStats?.totalInteractors || 0}</p>
                         </div>
                     </CardContent>
                 </CardRoot>

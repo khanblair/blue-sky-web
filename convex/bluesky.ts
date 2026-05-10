@@ -27,6 +27,35 @@ interface BlueskyComment {
     createdAt: string;
 }
 
+interface BlueskyLike {
+    uri: string;
+    cid: string;
+    actor: {
+        did: string;
+        handle: string;
+        displayName?: string;
+        avatar?: string;
+    };
+    createdAt: string;
+    indexedAt: string;
+}
+
+interface BlueskyFeedPost {
+    uri: string;
+    cid: string;
+    author: {
+        did: string;
+        handle: string;
+        displayName?: string;
+        avatar?: string;
+    };
+    record: {
+        text?: string;
+        createdAt?: string;
+        reply?: unknown;
+    };
+}
+
 export const syncProfile = action({
     args: {},
     handler: async (ctx): Promise<{ success: boolean; displayName?: string }> => {
@@ -134,7 +163,7 @@ export const postToBluesky = internalAction({
                 throw new Error(error.message || "Failed to push post to Bluesky");
             }
 
-            const postData = (await postResponse.json()) as { uri: string };
+            const postData = (await postResponse.json()) as { uri: string; cid: string };
             return postData.uri;
         } catch (error: unknown) {
             console.error("Bluesky post error:", error);
@@ -239,6 +268,220 @@ export const fetchCommentsForPost = internalAction({
             console.error("Bluesky fetch comments error:", error);
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(message);
+        }
+    },
+});
+
+export const fetchLikesForPost = internalAction({
+    args: {
+        handle: v.string(),
+        appPassword: v.string(),
+        postUri: v.string(),
+        cursor: v.optional(v.string()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (_ctx, args): Promise<{ likes: BlueskyLike[]; cursor?: string }> => {
+        try {
+            const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ identifier: args.handle, password: args.appPassword }),
+            });
+
+            if (!authResponse.ok) throw new Error("Bluesky authentication failed");
+
+            const authData = (await authResponse.json()) as BlueskyAuthResponse;
+            const limit = Math.min(args.limit ?? 100, 100);
+            let url = `https://bsky.social/xrpc/app.bsky.feed.getLikes?uri=${encodeURIComponent(args.postUri)}&limit=${limit}`;
+            if (args.cursor) url += `&cursor=${args.cursor}`;
+
+            const response = await fetch(url, {
+                headers: { "Authorization": `Bearer ${authData.accessJwt}` },
+            });
+
+            if (!response.ok) throw new Error("Failed to fetch likes");
+
+            const data = (await response.json()) as {
+                likes: Array<{
+                    uri: string;
+                    cid: string;
+                    actor: { did: string; handle: string; displayName?: string; avatar?: string };
+                    createdAt: string;
+                    indexedAt: string;
+                }>;
+                cursor?: string;
+            };
+
+            const likes: BlueskyLike[] = data.likes.map((l) => ({
+                uri: l.uri,
+                cid: l.cid,
+                actor: l.actor,
+                createdAt: l.createdAt,
+                indexedAt: l.indexedAt,
+            }));
+
+            return { likes, cursor: data.cursor };
+        } catch (error: unknown) {
+            console.error("Bluesky fetch likes error:", error);
+            throw new Error(error instanceof Error ? error.message : String(error));
+        }
+    },
+});
+
+export const fetchAuthorFeed = internalAction({
+    args: {
+        handle: v.string(),
+        appPassword: v.string(),
+        authorDid: v.string(),
+        limit: v.optional(v.number()),
+    },
+    handler: async (_ctx, args): Promise<BlueskyFeedPost[]> => {
+        try {
+            const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ identifier: args.handle, password: args.appPassword }),
+            });
+
+            if (!authResponse.ok) throw new Error("Bluesky authentication failed");
+
+            const authData = (await authResponse.json()) as BlueskyAuthResponse;
+            const limit = Math.min(args.limit ?? 10, 50);
+
+            const response = await fetch(
+                `https://bsky.social/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(args.authorDid)}&limit=${limit}`,
+                { headers: { "Authorization": `Bearer ${authData.accessJwt}` } }
+            );
+
+            if (!response.ok) throw new Error("Failed to fetch author feed");
+
+            const data = (await response.json()) as {
+                feed: Array<{
+                    post: {
+                        uri: string;
+                        cid: string;
+                        author: { did: string; handle: string; displayName?: string; avatar?: string };
+                        record: { text?: string; createdAt?: string; reply?: unknown };
+                    };
+                }>;
+            };
+
+            return data.feed.map((item) => ({
+                uri: item.post.uri,
+                cid: item.post.cid,
+                author: item.post.author,
+                record: item.post.record,
+            }));
+        } catch (error: unknown) {
+            console.error("Bluesky fetch author feed error:", error);
+            throw new Error(error instanceof Error ? error.message : String(error));
+        }
+    },
+});
+
+export const likePost = internalAction({
+    args: {
+        handle: v.string(),
+        appPassword: v.string(),
+        postUri: v.string(),
+        postCid: v.string(),
+    },
+    handler: async (_ctx, args): Promise<string> => {
+        try {
+            const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ identifier: args.handle, password: args.appPassword }),
+            });
+
+            if (!authResponse.ok) throw new Error("Bluesky authentication failed");
+
+            const authData = (await authResponse.json()) as BlueskyAuthResponse;
+
+            const response = await fetch("https://bsky.social/xrpc/com.atproto.repo.createRecord", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${authData.accessJwt}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    repo: authData.did,
+                    collection: "app.bsky.feed.like",
+                    record: {
+                        $type: "app.bsky.feed.like",
+                        subject: { uri: args.postUri, cid: args.postCid },
+                        createdAt: new Date().toISOString(),
+                    },
+                }),
+            });
+
+            if (!response.ok) {
+                const error = (await response.json()) as { message?: string };
+                throw new Error(error.message || "Failed to like post");
+            }
+
+            const data = (await response.json()) as { uri: string };
+            return data.uri;
+        } catch (error: unknown) {
+            console.error("Bluesky like error:", error);
+            throw new Error(error instanceof Error ? error.message : String(error));
+        }
+    },
+});
+
+export const replyToPost = internalAction({
+    args: {
+        handle: v.string(),
+        appPassword: v.string(),
+        text: v.string(),
+        replyToUri: v.string(),
+        replyToCid: v.string(),
+        rootUri: v.optional(v.string()),
+        rootCid: v.optional(v.string()),
+    },
+    handler: async (_ctx, args): Promise<string> => {
+        try {
+            const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ identifier: args.handle, password: args.appPassword }),
+            });
+
+            if (!authResponse.ok) throw new Error("Bluesky authentication failed");
+
+            const authData = (await authResponse.json()) as BlueskyAuthResponse;
+
+            const response = await fetch("https://bsky.social/xrpc/com.atproto.repo.createRecord", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${authData.accessJwt}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    repo: authData.did,
+                    collection: "app.bsky.feed.post",
+                    record: {
+                        $type: "app.bsky.feed.post",
+                        text: args.text,
+                        reply: {
+                            root: { uri: args.rootUri ?? args.replyToUri, cid: args.rootCid ?? args.replyToCid },
+                            parent: { uri: args.replyToUri, cid: args.replyToCid },
+                        },
+                        createdAt: new Date().toISOString(),
+                    },
+                }),
+            });
+
+            if (!response.ok) {
+                const error = (await response.json()) as { message?: string };
+                throw new Error(error.message || "Failed to post reply");
+            }
+
+            const data = (await response.json()) as { uri: string };
+            return data.uri;
+        } catch (error: unknown) {
+            console.error("Bluesky reply error:", error);
+            throw new Error(error instanceof Error ? error.message : String(error));
         }
     },
 });

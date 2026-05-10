@@ -11,6 +11,7 @@
 import type * as aiGeneration from "../aiGeneration.js";
 import type * as bluesky from "../bluesky.js";
 import type * as crons from "../crons.js";
+import type * as engagement from "../engagement.js";
 import type * as http from "../http.js";
 import type * as openrouter from "../openrouter.js";
 import type * as planLimits from "../planLimits.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   aiGeneration: typeof aiGeneration;
   bluesky: typeof bluesky;
   crons: typeof crons;
+  engagement: typeof engagement;
   http: typeof http;
   openrouter: typeof openrouter;
   planLimits: typeof planLimits;
