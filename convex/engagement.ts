@@ -236,11 +236,35 @@ export const getInteractionsForPerson = query({
             .filter((q) => q.eq(q.field("userId"), user._id) && q.eq(q.field("authorDid"), args.targetDid))
             .collect();
 
+        // Enrich comments with the post they were made on
+        const commentsWithPost = await Promise.all(
+            comments.map(async (c) => {
+                let postContent: string | null = null;
+                if (c.postHistoryId) {
+                    const post = await ctx.db.get(c.postHistoryId);
+                    postContent = post?.content ?? null;
+                }
+                return { ...c, postContent };
+            })
+        );
+
         const likes = await ctx.db
             .query("likes")
             .withIndex("by_authorDid", (q) => q.eq("authorDid", args.targetDid))
             .filter((q) => q.eq(q.field("userId"), user._id))
             .collect();
+
+        // Enrich likes with the post they liked
+        const likesWithPost = await Promise.all(
+            likes.map(async (l) => {
+                let postContent: string | null = null;
+                if (l.postHistoryId) {
+                    const post = await ctx.db.get(l.postHistoryId);
+                    postContent = post?.content ?? null;
+                }
+                return { ...l, postContent };
+            })
+        );
 
         const engagementLog = await ctx.db
             .query("engagementLog")
@@ -250,7 +274,7 @@ export const getInteractionsForPerson = query({
 
         // Get replies for the comments from this person
         const replies = [];
-        for (const comment of comments) {
+        for (const comment of commentsWithPost) {
             const reply = await ctx.db
                 .query("replies")
                 .withIndex("by_commentId", (q) => q.eq("commentId", comment._id))
@@ -258,7 +282,7 @@ export const getInteractionsForPerson = query({
             if (reply) replies.push({ ...reply, originalComment: comment.content });
         }
 
-        return { comments, likes, replies, engagementLog };
+        return { comments: commentsWithPost, likes: likesWithPost, replies, engagementLog };
     },
 });
 

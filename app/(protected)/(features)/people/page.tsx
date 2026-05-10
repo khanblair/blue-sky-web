@@ -40,10 +40,12 @@ type InteractionDetail = {
         content: string;
         createdAt: number;
         blueskyUri: string;
+        postContent: string | null;
     }>;
     likes: Array<{
         _id: string;
         indexedAt: number;
+        postContent: string | null;
     }>;
     replies: Array<{
         _id: string;
@@ -467,6 +469,12 @@ function PersonDetailModal({
                                         </span>
                                     </div>
                                     <p className="text-sm text-white/80">{c.content}</p>
+                                    {c.postContent && (
+                                        <div className="mt-2 pt-2 border-t border-blue-500/10">
+                                            <p className="text-[10px] font-black uppercase text-default-500 mb-0.5">On your post:</p>
+                                            <p className="text-xs text-default-400 line-clamp-2">&ldquo;{c.postContent}&rdquo;</p>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
 
@@ -493,6 +501,11 @@ function PersonDetailModal({
                                             {formatDistanceToNow(l.indexedAt, { addSuffix: true })}
                                         </span>
                                     </div>
+                                    {l.postContent && (
+                                        <div className="mt-2 pt-2 border-t border-pink-500/10">
+                                            <p className="text-xs text-default-400 line-clamp-2">&ldquo;{l.postContent}&rdquo;</p>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
 
