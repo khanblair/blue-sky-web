@@ -226,6 +226,7 @@ export const CRYPTO_WALLETS = {
 } as const;
 
 export const PROVIDER_INFO = [
+    { id: "deepseek", name: "DeepSeek", models: ["deepseek-chat"] },
     { id: "openrouter", name: "OpenRouter", models: ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "anthropic/claude-sonnet-4", "openai/gpt-4o", "openai/gpt-4o-mini", "meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-chat"] },
     { id: "openai", name: "OpenAI", models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"] },
     { id: "anthropic", name: "Anthropic", models: ["claude-sonnet-4-20250514", "claude-haiku-4-20250414"] },

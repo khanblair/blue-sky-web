@@ -105,10 +105,28 @@ export const PROVIDER_REGISTRY: Record<string, {
         }),
         responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
+    deepseek: {
+        name: "DeepSeek",
+        baseUrl: "https://api.deepseek.com/v1/chat/completions",
+        models: [
+            "deepseek-chat",
+        ],
+        authHeader: (key) => ({
+            "Authorization": `Bearer ${key}`,
+            "Content-Type": "application/json",
+        }),
+        bodyTransform: (model, messages, options) => ({
+            model,
+            messages,
+            temperature: options?.temperature ?? 0.85,
+            max_tokens: options?.maxTokens ?? 512,
+        }),
+        responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
+    },
 };
 
-export const DEFAULT_PROVIDER = "openrouter";
-export const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
+export const DEFAULT_PROVIDER = "deepseek";
+export const DEFAULT_MODEL = "deepseek-chat";
 
 async function resolveAiConfig(
     ctx: { db: DatabaseReader },
@@ -132,7 +150,7 @@ async function resolveAiConfig(
     return {
         provider: DEFAULT_PROVIDER,
         model: DEFAULT_MODEL,
-        apiKey: process.env.OPENROUTER_API_KEY ?? "",
+        apiKey: process.env.DEEPSEEK_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
     };
 }
 
@@ -155,7 +173,7 @@ export const generatePost = internalAction({
     handler: async (ctx, args): Promise<string> => {
         const { provider, model, apiKey, temperature, maxTokens } = args.userId
             ? await ctx.runQuery(internal.aiGeneration.getActiveAiConfig, { userId: args.userId })
-            : { provider: DEFAULT_PROVIDER, model: DEFAULT_MODEL, apiKey: process.env.OPENROUTER_API_KEY ?? "", temperature: undefined, maxTokens: undefined };
+            : { provider: DEFAULT_PROVIDER, model: DEFAULT_MODEL, apiKey: process.env.DEEPSEEK_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "", temperature: undefined, maxTokens: undefined };
 
         if (!apiKey) throw new Error(`No API key available for provider: ${provider}`);
 
@@ -310,6 +328,7 @@ export const saveProviderConfig = mutation({
             openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
             anthropic: ["claude-sonnet-4-20250514", "claude-haiku-4-20250414"],
             google: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"],
+            deepseek: ["deepseek-chat"],
         };
 
         const models = PROVIDER_REGISTRY_MODELS[args.provider];
