@@ -6,8 +6,6 @@ import {
     CardHeader,
     CardContent,
     Button,
-    Label,
-    Input,
     Switch,
     Chip,
     TabsRoot,
@@ -23,15 +21,33 @@ import {
     MessageSquare,
     Clock,
     Loader2,
-    Zap,
-    Crown,
     Users,
+    ExternalLink,
+    X,
+    Calendar,
+    Tag,
+    Mic,
+    Hash,
+    Layers,
+    Bot,
+    Zap,
+    Key,
 } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 import { UsageBar, UpsellBanner } from "@/components/ui";
 import { PLAN_LIMITS, type PlanId } from "@/lib/plans";
+
+type PostRecord = {
+    _id: string;
+    content?: string;
+    error?: string;
+    status: string;
+    timestamp: number;
+    blueskyUri?: string;
+};
 
 export default function DashboardPage() {
     const user = useQuery(api.users.getCurrentUser);
@@ -40,60 +56,17 @@ export default function DashboardPage() {
     const history = useQuery(api.posting.getPostHistory);
     const planDetails = useQuery(api.subscriptions.getPlanDetails);
     const engagementStats = useQuery(api.engagement.getEngagementStats);
+    const providerConfigs = useQuery(api.aiGeneration.getProviderConfigs);
 
     const currentPlan = planDetails?.plan ?? "starter";
     const limits = planDetails?.limits ?? PLAN_LIMITS.starter;
     const usage = planDetails?.usage;
 
     const updateUser = useMutation(api.users.createOrUpdateUser);
-    const updatePrefs = useMutation(api.users.updatePreferences);
     const postNow = useAction(api.posting.postNow);
 
-    const [isSaving, setIsSaving] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
-    const [topicsStr, setTopicsStr] = useState("");
-    const [localPrefs, setLocalPrefs] = useState({
-        tone: "professional",
-        frequency: 24
-    });
-
-    useEffect(() => {
-        if (!preferences) return;
-        
-        const timer = setTimeout(() => {
-            setTopicsStr(preferences.topics.join(", "));
-            setLocalPrefs({
-                tone: preferences.tone,
-                frequency: preferences.frequency
-            });
-        }, 0);
-
-        return () => clearTimeout(timer);
-    }, [preferences]);
-
-    const handleSavePreferences = async () => {
-        const topics = topicsStr.split(",").map(t => t.trim()).filter(Boolean);
-        
-        if (topics.length > limits.maxTopics) {
-            alert(`Your ${limits.label} plan allows a maximum of ${limits.maxTopics} topics. Please upgrade for more.`);
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            await updatePrefs({
-                topics,
-                tone: localPrefs.tone,
-                frequency: localPrefs.frequency,
-            });
-            alert("Preferences saved!");
-        } catch (error) {
-            console.error("Save failed:", error);
-            alert("Failed to save preferences");
-        } finally {
-            setIsSaving(false);
-        }
-    };
+    const [selectedPost, setSelectedPost] = useState<PostRecord | null>(null);
 
     const handleToggleActive = async () => {
         if (!user) return;
@@ -111,11 +84,10 @@ export default function DashboardPage() {
     const handlePostNow = async () => {
         setIsPosting(true);
         try {
-            alert("Triggering AI broadcast based on current strategy...");
-            await postNow({ text: `AI Broadcast: Exploring ${topicsStr}` });
-            alert("Posted successfully!");
+            await postNow({ text: "" });
+            alert("Post triggered successfully!");
         } catch (error) {
-            alert("Broadcast failed");
+            alert("Post failed");
         } finally {
             setIsPosting(false);
         }
@@ -132,6 +104,17 @@ export default function DashboardPage() {
     const nextScheduledDate = preferences?.lastPostTime
         ? new Date(preferences.lastPostTime + (preferences.frequency * 60 * 60 * 1000))
         : null;
+
+    const activeProvider = providerConfigs?.find((c: { isActive: boolean }) => c.isActive);
+
+    const planFeatures = [
+        { label: "Topics", value: `${limits.maxTopics === Infinity ? "Unlimited" : limits.maxTopics}`, icon: Hash },
+        { label: "Subtopics", value: `${limits.maxSubtopics === Infinity ? "Unlimited" : limits.maxSubtopics}`, icon: Layers },
+        { label: "Post Interval", value: `${limits.minGenerateIntervalHours}h min`, icon: Clock },
+        { label: "Custom Model", value: limits.customModel ? "Yes" : "No", icon: Bot },
+        { label: "BYOK", value: limits.byok ? "Yes" : "No", icon: Key },
+        { label: "Notifications", value: limits.notifications ? "Yes" : "No", icon: Zap },
+    ];
 
     return (
         <div className="flex flex-col gap-6 pb-12">
@@ -189,6 +172,20 @@ export default function DashboardPage() {
                         current={usage?.postsPublished ?? 0}
                         limit={limits.postsPerMonth}
                     />
+                    {limits.autoReply && (
+                        <UsageBar
+                            label="Auto-Replies"
+                            current={usage?.autoRepliesUsed ?? 0}
+                            limit={limits.autoRepliesPerMonth}
+                        />
+                    )}
+                    {limits.reciprocalEngagement && (
+                        <UsageBar
+                            label="Reciprocal Engagement"
+                            current={usage?.reciprocalEngagementsUsed ?? 0}
+                            limit={limits.reciprocalEngagementsPerMonth}
+                        />
+                    )}
                 </div>
             )}
 
@@ -277,75 +274,86 @@ export default function DashboardPage() {
                     </Tab>
                 </TabList>
 
+                {/* Strategy — read-only display */}
                 <TabPanel id="preferences">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <CardRoot className="p-4 bg-surface border-divider border shadow-sm">
-                            <CardHeader className="flex gap-3 pb-4">
-                                <Cloud className="text-primary" />
-                                <div className="flex flex-col">
-                                    <p className="text-md font-bold uppercase tracking-tight text-white">Content Strategy</p>
-                                    <p className="text-small text-default-500 uppercase tracking-tighter text-[9px]">Refine your AI&apos;s writing style</p>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-6 pt-4">
-                                <div className="space-y-4">
-                                    <div className="flex flex-col gap-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Topics (comma separated)</Label>
-                                        <Input
-                                            placeholder="Tech, Philosophy, AI"
-                                            value={topicsStr}
-                                            onChange={(e) => setTopicsStr(e.target.value)}
-                                            className="bg-default-50 border-divider"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Writing Tone</Label>
-                                        <Input
-                                            placeholder="Professional yet witty"
-                                            value={localPrefs.tone}
-                                            onChange={(e) => setLocalPrefs({ ...localPrefs, tone: e.target.value })}
-                                            className="bg-default-50 border-divider"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Posting Frequency (Hours)</Label>
-                                        <Input
-                                            placeholder="24"
-                                            type="number"
-                                            value={localPrefs.frequency.toString()}
-                                            min={limits.minGenerateIntervalHours}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value) || 1;
-                                                setLocalPrefs({ ...localPrefs, frequency: val });
-                                            }}
-                                            onBlur={(e) => {
-                                                const val = parseInt(e.target.value) || 1;
-                                                const clamped = Math.max(val, limits.minGenerateIntervalHours);
-                                                setLocalPrefs({ ...localPrefs, frequency: clamped });
-                                            }}
-                                            className="bg-default-50 border-divider"
-                                        />
-                                        <p className="text-[9px] text-default-500 italic">
-                                            * Minimum {limits.minGenerateIntervalHours}h for {limits.label} plan.
-                                        </p>
+                        <CardRoot className="bg-surface border-divider border shadow-sm">
+                            <CardHeader className="flex items-center justify-between p-6 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <Bot className="text-primary" size={18} />
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-tight text-white">Current Strategy</p>
+                                        <p className="text-[9px] text-default-500 uppercase tracking-widest">Your AI configuration at a glance</p>
                                     </div>
                                 </div>
                                 <Button
-                                    variant="primary"
-                                    className="mt-4 font-black uppercase tracking-widest text-xs h-11 shadow-lg shadow-primary/20"
-                                    onPress={handleSavePreferences}
-                                    isDisabled={isSaving}
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-[10px] font-bold uppercase tracking-widest text-primary"
+                                    onPress={() => window.location.href = "/settings"}
                                 >
-                                    {isSaving ? "Saving..." : "Save Strategy"}
+                                    Edit <Settings size={12} className="ml-1" />
                                 </Button>
+                            </CardHeader>
+                            <div className="h-px bg-divider" />
+                            <CardContent className="p-6 space-y-5">
+                                {/* Topics */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-default-400 flex items-center gap-1.5">
+                                        <Hash size={11} /> Topics
+                                    </p>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {preferences?.topics.length ? preferences.topics.map((t: string) => (
+                                            <Chip key={t} size="sm" variant="soft" className="bg-primary/10 text-primary font-bold text-[10px]">
+                                                {t}
+                                            </Chip>
+                                        )) : (
+                                            <span className="text-xs text-default-500 italic">No topics configured</span>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-default-500">
+                                        {preferences?.topics.length ?? 0}/{limits.maxTopics === Infinity ? "∞" : limits.maxTopics} topics used
+                                    </p>
+                                </div>
+
+                                {/* Tone */}
+                                <div className="space-y-1.5">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-default-400 flex items-center gap-1.5">
+                                        <Mic size={11} /> Writing Tone
+                                    </p>
+                                    <p className="text-sm font-bold text-white capitalize">{preferences?.tone || "Professional"}</p>
+                                </div>
+
+                                {/* Frequency */}
+                                <div className="space-y-1.5">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-default-400 flex items-center gap-1.5">
+                                        <Calendar size={11} /> Posting Frequency
+                                    </p>
+                                    <p className="text-sm font-bold text-white">Every {preferences?.frequency ?? 24} hours</p>
+                                    <p className="text-[9px] text-default-500">Min {limits.minGenerateIntervalHours}h for {limits.label} plan</p>
+                                </div>
+
+                                {/* AI Model */}
+                                <div className="space-y-1.5">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-default-400 flex items-center gap-1.5">
+                                        <Bot size={11} /> AI Model
+                                    </p>
+                                    <p className="text-sm font-bold text-white">
+                                        {activeProvider ? `${activeProvider.model}` : "DeepSeek (default)"}
+                                    </p>
+                                    <p className="text-[9px] text-default-500">
+                                        {activeProvider ? `via ${activeProvider.provider}` : "Platform default"}
+                                    </p>
+                                </div>
                             </CardContent>
                         </CardRoot>
 
-                        <div className="flex flex-col gap-8">
-                            <CardRoot className="p-4 bg-surface border-divider border shadow-sm">
-                                <CardContent className="flex flex-row items-center justify-between p-4">
+                        <div className="flex flex-col gap-6">
+                            {/* Automation toggle */}
+                            <CardRoot className="bg-surface border-divider border shadow-sm">
+                                <CardContent className="flex flex-row items-center justify-between p-5">
                                     <div className="flex flex-col gap-1">
-                                        <p className="text-md font-bold uppercase tracking-tight text-white">Automated Posting</p>
+                                        <p className="text-sm font-bold uppercase tracking-tight text-white">Automated Posting</p>
                                         <p className="text-[10px] text-default-500 uppercase tracking-widest opacity-60">Toggle entire automation system</p>
                                     </div>
                                     <Switch
@@ -354,10 +362,42 @@ export default function DashboardPage() {
                                     />
                                 </CardContent>
                             </CardRoot>
+
+                            {/* Plan limits */}
+                            <CardRoot className="bg-surface border-divider border shadow-sm">
+                                <CardHeader className="p-5 pb-3">
+                                    <div className="flex items-center gap-2">
+                                        <Tag size={14} className="text-warning" />
+                                        <p className="text-xs font-black uppercase tracking-widest text-white">{limits.label} Plan</p>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="px-5 pb-5 pt-0">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {planFeatures.map(({ label, value, icon: Icon }) => (
+                                            <div key={label} className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03]">
+                                                <Icon size={12} className="text-default-400 shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-black uppercase text-default-500">{label}</p>
+                                                    <p className="text-xs font-bold text-white">{value}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="mt-3 w-full text-[10px] font-bold uppercase tracking-widest text-primary"
+                                        onPress={() => window.location.href = "/billing"}
+                                    >
+                                        Upgrade Plan
+                                    </Button>
+                                </CardContent>
+                            </CardRoot>
                         </div>
                     </div>
                 </TabPanel>
 
+                {/* History — clickable records with detail modal */}
                 <TabPanel id="history">
                     <CardRoot className="bg-surface border-divider border shadow-sm">
                         <CardContent className="p-0">
@@ -366,8 +406,12 @@ export default function DashboardPage() {
                                 {(history || []).length === 0 ? (
                                     <p className="px-6 py-12 text-center text-default-500 font-bold text-sm">No post history yet</p>
                                 ) : (
-                                    (history || []).map((post) => (
-                                        <div key={post._id} className="p-4 flex flex-col gap-2">
+                                    (history || []).map((post: PostRecord) => (
+                                        <div
+                                            key={post._id}
+                                            className="p-4 flex flex-col gap-2.5 cursor-pointer active:bg-default-50/20 transition-colors"
+                                            onClick={() => setSelectedPost(post)}
+                                        >
                                             <div className="flex items-center justify-between gap-2">
                                                 <Chip
                                                     variant="soft"
@@ -377,21 +421,11 @@ export default function DashboardPage() {
                                                 >
                                                     {post.status}
                                                 </Chip>
-                                                <span className="text-[10px] font-bold text-default-500 uppercase">
+                                                <span className="text-[10px] font-bold text-default-500">
                                                     {formatDistanceToNow(post.timestamp, { addSuffix: true })}
                                                 </span>
                                             </div>
                                             <p className="text-sm font-bold text-white/90 line-clamp-2">{post.content || post.error || "No content"}</p>
-                                            {post.blueskyUri && (
-                                                <a
-                                                    href={`https://bsky.app/profile/${user?.handle}/post/${post.blueskyUri.split('/').pop()}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-[10px] font-black uppercase tracking-widest text-primary"
-                                                >
-                                                    View Post →
-                                                </a>
-                                            )}
                                         </div>
                                     ))
                                 )}
@@ -416,8 +450,12 @@ export default function DashboardPage() {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            (history || []).map((post) => (
-                                                <tr key={post._id} className="border-b border-divider/40 last:border-0 hover:bg-default-50 transition-colors">
+                                            (history || []).map((post: PostRecord) => (
+                                                <tr
+                                                    key={post._id}
+                                                    className="border-b border-divider/40 last:border-0 hover:bg-default-50 transition-colors cursor-pointer"
+                                                    onClick={() => setSelectedPost(post)}
+                                                >
                                                     <td className="px-6 py-5">
                                                         <p className="line-clamp-1 text-sm font-bold tracking-tight text-white/90">{post.content || post.error || "No content"}</p>
                                                     </td>
@@ -443,6 +481,7 @@ export default function DashboardPage() {
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                                                                onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 View Post
                                                             </a>
@@ -460,6 +499,93 @@ export default function DashboardPage() {
                     </CardRoot>
                 </TabPanel>
             </TabsRoot>
+
+            {/* Post Detail Modal */}
+            <AnimatePresence>
+                {selectedPost && (
+                    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                            onClick={() => setSelectedPost(null)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+                            transition={{ type: "spring", damping: 28, stiffness: 320 }}
+                            className="relative w-full max-w-lg bg-zinc-950 border border-white/10 rounded-[2rem] overflow-hidden flex flex-col z-10 shadow-2xl"
+                        >
+                            {/* Header */}
+                            <div className="flex items-center justify-between p-7 pb-5 border-b border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <Chip
+                                        variant="soft"
+                                        color={selectedPost.status === "success" ? "success" : "danger"}
+                                        size="sm"
+                                        className="font-black text-[9px] uppercase tracking-widest h-6 px-3"
+                                    >
+                                        {selectedPost.status}
+                                    </Chip>
+                                    <span className="text-xs text-default-500">
+                                        {format(selectedPost.timestamp, "MMM d, yyyy 'at' h:mm a")}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedPost(null)}
+                                    className="p-2 rounded-xl hover:bg-white/5 text-zinc-500 hover:text-white transition-colors"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-7 flex flex-col gap-4 overflow-y-auto max-h-[50vh]">
+                                {selectedPost.content && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-default-400">Post Content</p>
+                                        <p className="text-sm text-white/90 leading-relaxed whitespace-pre-wrap">{selectedPost.content}</p>
+                                    </div>
+                                )}
+
+                                {selectedPost.error && (
+                                    <div className="p-3 rounded-xl bg-danger/5 border border-danger/10">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-danger mb-1">Error</p>
+                                        <p className="text-xs text-danger/80">{selectedPost.error}</p>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-3 text-[10px] text-default-500">
+                                    <span>{formatDistanceToNow(selectedPost.timestamp, { addSuffix: true })}</span>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-7 pt-5 border-t border-white/5 bg-white/[0.02] flex gap-3">
+                                {selectedPost.blueskyUri && (
+                                    <a
+                                        href={`https://bsky.app/profile/${user?.handle}/post/${selectedPost.blueskyUri.split('/').pop()}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
+                                    >
+                                        <ExternalLink size={14} />
+                                        View on Bluesky
+                                    </a>
+                                )}
+                                <button
+                                    onClick={() => setSelectedPost(null)}
+                                    className="px-4 py-3 rounded-xl bg-white/5 text-zinc-400 text-sm font-bold hover:text-white hover:bg-white/10 transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

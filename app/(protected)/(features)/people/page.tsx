@@ -248,7 +248,7 @@ export default function PeoplePage() {
 
             {/* People List */}
             <CardRoot className="bg-surface border-divider border">
-                <CardContent className="p-0 overflow-x-auto">
+                <CardContent className="p-0">
                     {filtered.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
                             <Users size={40} className="text-zinc-700 mb-4" />
@@ -258,53 +258,64 @@ export default function PeoplePage() {
                             </p>
                         </div>
                     ) : (
-                        <table className="w-full min-w-full border-collapse">
-                            <thead>
-                                <tr className="border-b border-divider bg-default-50/50">
-                                    {["PERSON", "INTERACTIONS", "LAST ACTIVE", "ACTIONS"].map((col) => (
-                                        <th
-                                            key={col}
-                                            className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-default-400 text-left"
-                                        >
-                                            {col}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
+                        <>
+                            {/* Mobile card layout */}
+                            <div className="md:hidden divide-y divide-divider/50">
                                 {filtered.map((person) => (
-                                    <tr
+                                    <div
                                         key={person.did}
-                                        className="border-b border-divider/50 last:border-none hover:bg-default-50/30 transition-colors cursor-pointer"
+                                        className="p-4 flex flex-col gap-3 active:bg-default-50/20 transition-colors cursor-pointer"
                                         onClick={() => setSelectedPerson(person)}
                                     >
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-3">
-                                                {person.avatar ? (
-                                                    <img
-                                                        src={person.avatar}
-                                                        alt=""
-                                                        className="w-9 h-9 rounded-full object-cover shrink-0"
-                                                    />
-                                                ) : (
-                                                    <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                                                        <Users size={16} className="text-zinc-500" />
-                                                    </div>
-                                                )}
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-bold text-white/90 truncate">
-                                                        {person.displayName || person.handle}
-                                                    </p>
-                                                    {person.handle && (
-                                                        <p className="text-[11px] text-default-500 truncate">
-                                                            @{person.handle}
-                                                        </p>
-                                                    )}
+                                        <div className="flex items-center gap-3">
+                                            {person.avatar ? (
+                                                <img src={person.avatar} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                                                    <Users size={16} className="text-zinc-500" />
                                                 </div>
+                                            )}
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-bold text-white/90 truncate">{person.displayName || person.handle}</p>
+                                                {person.handle && (
+                                                    <p className="text-[11px] text-default-500 truncate">@{person.handle}</p>
+                                                )}
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex gap-2 flex-wrap">
+                                            <div className="relative" ref={openMenu === person.did ? menuRef : undefined}>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === person.did ? null : person.did); }}
+                                                    disabled={engaging === person.did}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/10 text-success text-xs font-bold hover:bg-success/20 transition-colors disabled:opacity-50"
+                                                >
+                                                    {engaging === person.did ? <Loader2 size={12} className="animate-spin" /> : <UserPlus size={12} />}
+                                                    <ChevronDown size={12} />
+                                                </button>
+                                                <AnimatePresence>
+                                                    {openMenu === person.did && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: -4 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -4 }}
+                                                            transition={{ duration: 0.12 }}
+                                                            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl bg-zinc-900 border border-white/10 shadow-xl overflow-hidden"
+                                                        >
+                                                            <button onClick={(e) => { e.stopPropagation(); setOpenMenu(null); setEngaging(person.did); manualLike({ targetDid: person.did }).then(() => setEngaging(null)).catch(() => setEngaging(null)); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors">
+                                                                <Heart size={13} className="text-pink-400" /> Like Post
+                                                            </button>
+                                                            <button onClick={(e) => { e.stopPropagation(); setOpenMenu(null); setEngaging(person.did); manualComment({ targetDid: person.did }).then(() => setEngaging(null)).catch(() => setEngaging(null)); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors">
+                                                                <MessageSquare size={13} className="text-blue-400" /> Comment
+                                                            </button>
+                                                            <div className="h-px bg-white/5" />
+                                                            <button onClick={(e) => { e.stopPropagation(); setOpenMenu(null); setEngaging(person.did); manualEngage({ targetDid: person.did }).then(() => setEngaging(null)).catch(() => setEngaging(null)); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors">
+                                                                <UserPlus size={13} className="text-success" /> Like + Comment
+                                                            </button>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex gap-1.5 flex-wrap">
                                                 {person.commentCount > 0 && (
                                                     <Chip size="sm" variant="soft" className="bg-blue-500/10 text-blue-400 font-bold text-[10px]">
                                                         {person.commentCount} comment{person.commentCount > 1 ? "s" : ""}
@@ -321,96 +332,123 @@ export default function PeoplePage() {
                                                     </Chip>
                                                 )}
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col">
-                                                <span className="text-[11px] font-black text-white">
-                                                    {format(person.lastInteractionDate, "MMM d, yyyy")}
-                                                </span>
-                                                <span className="text-[9px] font-bold text-default-400 uppercase">
-                                                    {formatDistanceToNow(person.lastInteractionDate, { addSuffix: true })}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="relative" ref={openMenu === person.did ? menuRef : undefined}>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenMenu(openMenu === person.did ? null : person.did);
-                                                    }}
-                                                    disabled={engaging === person.did}
-                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-success/10 text-success text-xs font-bold hover:bg-success/20 transition-colors disabled:opacity-50"
-                                                >
-                                                    {engaging === person.did ? (
-                                                        <Loader2 size={12} className="animate-spin" />
-                                                    ) : (
-                                                        <UserPlus size={12} />
-                                                    )}
-                                                    Engage
-                                                    <ChevronDown size={12} />
-                                                </button>
-                                                <AnimatePresence>
-                                                    {openMenu === person.did && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, y: -4 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            exit={{ opacity: 0, y: -4 }}
-                                                            transition={{ duration: 0.12 }}
-                                                            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl bg-zinc-900 border border-white/10 shadow-xl overflow-hidden"
-                                                        >
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setOpenMenu(null);
-                                                                    setEngaging(person.did);
-                                                                    manualLike({ targetDid: person.did })
-                                                                        .then(() => setEngaging(null))
-                                                                        .catch(() => setEngaging(null));
-                                                                }}
-                                                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
-                                                            >
-                                                                <Heart size={13} className="text-pink-400" />
-                                                                Like Post
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setOpenMenu(null);
-                                                                    setEngaging(person.did);
-                                                                    manualComment({ targetDid: person.did })
-                                                                        .then(() => setEngaging(null))
-                                                                        .catch(() => setEngaging(null));
-                                                                }}
-                                                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
-                                                            >
-                                                                <MessageSquare size={13} className="text-blue-400" />
-                                                                Comment
-                                                            </button>
-                                                            <div className="h-px bg-white/5" />
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setOpenMenu(null);
-                                                                    setEngaging(person.did);
-                                                                    manualEngage({ targetDid: person.did })
-                                                                        .then(() => setEngaging(null))
-                                                                        .catch(() => setEngaging(null));
-                                                                }}
-                                                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
-                                                            >
-                                                                <UserPlus size={13} className="text-success" />
-                                                                Like + Comment
-                                                            </button>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            <span className="text-[10px] font-bold text-default-400 uppercase shrink-0">
+                                                {formatDistanceToNow(person.lastInteractionDate, { addSuffix: true })}
+                                            </span>
+                                        </div>
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+
+                            {/* Desktop table */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full min-w-full border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-divider bg-default-50/50">
+                                            {["PERSON", "INTERACTIONS", "LAST ACTIVE", "ACTIONS"].map((col) => (
+                                                <th
+                                                    key={col}
+                                                    className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-default-400 text-left"
+                                                >
+                                                    {col}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map((person) => (
+                                            <tr
+                                                key={person.did}
+                                                className="border-b border-divider/50 last:border-none hover:bg-default-50/30 transition-colors cursor-pointer"
+                                                onClick={() => setSelectedPerson(person)}
+                                            >
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center gap-3">
+                                                        {person.avatar ? (
+                                                            <img src={person.avatar} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                                                        ) : (
+                                                            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                                                                <Users size={16} className="text-zinc-500" />
+                                                            </div>
+                                                        )}
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-bold text-white/90 truncate">{person.displayName || person.handle}</p>
+                                                            {person.handle && (
+                                                                <p className="text-[11px] text-default-500 truncate">@{person.handle}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex gap-2 flex-wrap">
+                                                        {person.commentCount > 0 && (
+                                                            <Chip size="sm" variant="soft" className="bg-blue-500/10 text-blue-400 font-bold text-[10px]">
+                                                                {person.commentCount} comment{person.commentCount > 1 ? "s" : ""}
+                                                            </Chip>
+                                                        )}
+                                                        {person.likeCount > 0 && (
+                                                            <Chip size="sm" variant="soft" className="bg-pink-500/10 text-pink-400 font-bold text-[10px]">
+                                                                {person.likeCount} like{person.likeCount > 1 ? "s" : ""}
+                                                            </Chip>
+                                                        )}
+                                                        {person.engagedCount > 0 && (
+                                                            <Chip size="sm" variant="soft" className="bg-success/10 text-success font-bold text-[10px]">
+                                                                {person.engagedCount} engaged
+                                                            </Chip>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[11px] font-black text-white">
+                                                            {format(person.lastInteractionDate, "MMM d, yyyy")}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-default-400 uppercase">
+                                                            {formatDistanceToNow(person.lastInteractionDate, { addSuffix: true })}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="relative" ref={openMenu === person.did ? menuRef : undefined}>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === person.did ? null : person.did); }}
+                                                            disabled={engaging === person.did}
+                                                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-success/10 text-success text-xs font-bold hover:bg-success/20 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {engaging === person.did ? <Loader2 size={12} className="animate-spin" /> : <UserPlus size={12} />}
+                                                            Engage
+                                                            <ChevronDown size={12} />
+                                                        </button>
+                                                        <AnimatePresence>
+                                                            {openMenu === person.did && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: -4 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, y: -4 }}
+                                                                    transition={{ duration: 0.12 }}
+                                                                    className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl bg-zinc-900 border border-white/10 shadow-xl overflow-hidden"
+                                                                >
+                                                                    <button onClick={(e) => { e.stopPropagation(); setOpenMenu(null); setEngaging(person.did); manualLike({ targetDid: person.did }).then(() => setEngaging(null)).catch(() => setEngaging(null)); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors">
+                                                                        <Heart size={13} className="text-pink-400" /> Like Post
+                                                                    </button>
+                                                                    <button onClick={(e) => { e.stopPropagation(); setOpenMenu(null); setEngaging(person.did); manualComment({ targetDid: person.did }).then(() => setEngaging(null)).catch(() => setEngaging(null)); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors">
+                                                                        <MessageSquare size={13} className="text-blue-400" /> Comment
+                                                                    </button>
+                                                                    <div className="h-px bg-white/5" />
+                                                                    <button onClick={(e) => { e.stopPropagation(); setOpenMenu(null); setEngaging(person.did); manualEngage({ targetDid: person.did }).then(() => setEngaging(null)).catch(() => setEngaging(null)); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors">
+                                                                        <UserPlus size={13} className="text-success" /> Like + Comment
+                                                                    </button>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
                     )}
                 </CardContent>
             </CardRoot>

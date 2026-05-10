@@ -101,6 +101,8 @@ export const getUsageForUser = internalQuery({
                 postsGenerated: 0,
                 postsPublished: 0,
                 aiGenerationsUsed: 0,
+                autoRepliesUsed: 0,
+                reciprocalEngagementsUsed: 0,
                 periodEnd: 0,
             };
         }
@@ -109,6 +111,8 @@ export const getUsageForUser = internalQuery({
             postsGenerated: usage.postsGenerated,
             postsPublished: usage.postsPublished,
             aiGenerationsUsed: usage.aiGenerationsUsed,
+            autoRepliesUsed: usage.autoRepliesUsed ?? 0,
+            reciprocalEngagementsUsed: usage.reciprocalEngagementsUsed ?? 0,
             periodEnd: usage.periodEnd,
         };
     },
@@ -142,6 +146,8 @@ export const checkLimit = internalQuery({
             postsGenerated: usageRecord?.postsGenerated ?? 0,
             postsPublished: usageRecord?.postsPublished ?? 0,
             aiGenerationsUsed: usageRecord?.aiGenerationsUsed ?? 0,
+            autoRepliesUsed: usageRecord?.autoRepliesUsed ?? 0,
+            reciprocalEngagementsUsed: usageRecord?.reciprocalEngagementsUsed ?? 0,
         };
 
         if (args.action === "generate") {
@@ -168,6 +174,40 @@ export const checkLimit = internalQuery({
                 remaining: planLimits.postsPerMonth === Infinity ? Infinity : planLimits.postsPerMonth - currentUsage.postsPublished,
                 message: atLimit
                     ? `Monthly post limit reached (${planLimits.postsPerMonth}/${plan === 'starter' ? 'Starter' : plan} plan). Upgrade for more.`
+                    : "OK",
+            };
+        }
+
+        if (args.action === "autoReply") {
+            if (!planLimits.autoReply) {
+                return { allowed: false, plan, limits: planLimits, usage: currentUsage, remaining: 0, message: `Auto-reply is not available on the ${planLimits.label} plan. Upgrade to Lite or higher.` };
+            }
+            const atLimit = currentUsage.autoRepliesUsed >= planLimits.autoRepliesPerMonth;
+            return {
+                allowed: !atLimit,
+                plan,
+                limits: planLimits,
+                usage: currentUsage,
+                remaining: planLimits.autoRepliesPerMonth === Infinity ? Infinity : planLimits.autoRepliesPerMonth - currentUsage.autoRepliesUsed,
+                message: atLimit
+                    ? `Auto-reply limit reached (${planLimits.autoRepliesPerMonth}/month on ${planLimits.label}). Upgrade for more.`
+                    : "OK",
+            };
+        }
+
+        if (args.action === "reciprocalEngagement") {
+            if (!planLimits.reciprocalEngagement) {
+                return { allowed: false, plan, limits: planLimits, usage: currentUsage, remaining: 0, message: `Reciprocal engagement is not available on the ${planLimits.label} plan. Upgrade to Basic or higher.` };
+            }
+            const atLimit = currentUsage.reciprocalEngagementsUsed >= planLimits.reciprocalEngagementsPerMonth;
+            return {
+                allowed: !atLimit,
+                plan,
+                limits: planLimits,
+                usage: currentUsage,
+                remaining: planLimits.reciprocalEngagementsPerMonth === Infinity ? Infinity : planLimits.reciprocalEngagementsPerMonth - currentUsage.reciprocalEngagementsUsed,
+                message: atLimit
+                    ? `Reciprocal engagement limit reached (${planLimits.reciprocalEngagementsPerMonth}/month on ${planLimits.label}). Upgrade for more.`
                     : "OK",
             };
         }

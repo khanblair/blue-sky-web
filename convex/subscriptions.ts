@@ -76,6 +76,8 @@ export const getPlanDetails = query({
                 postsGenerated: usageResult.postsGenerated,
                 postsPublished: usageResult.postsPublished,
                 aiGenerationsUsed: usageResult.aiGenerationsUsed,
+                autoRepliesUsed: usageResult.autoRepliesUsed ?? 0,
+                reciprocalEngagementsUsed: usageResult.reciprocalEngagementsUsed ?? 0,
                 periodStart: usageResult.periodStart,
                 periodEnd: usageResult.periodEnd,
             };

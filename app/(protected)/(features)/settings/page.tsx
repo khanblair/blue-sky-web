@@ -28,6 +28,7 @@ import {
     Smartphone,
     Send,
     ArrowRightLeft,
+    Lock,
 } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -42,6 +43,12 @@ export default function SettingsPage() {
     const updatePrefs = useMutation(api.users.updatePreferences);
     const engagementSettings = useQuery(api.engagement.getEngagementSettings);
     const updateEngagementSettings = useMutation(api.engagement.updateEngagementSettings);
+    const planDetails = useQuery(api.subscriptions.getPlanDetails);
+
+    const currentPlan = planDetails?.plan ?? "starter";
+    const limits = planDetails?.limits;
+    const canAutoReply = limits?.autoReply ?? false;
+    const canReciprocalEngage = limits?.reciprocalEngagement ?? false;
 
     const [handle, setHandle] = useState("");
     const [password, setPassword] = useState("");
@@ -407,10 +414,16 @@ export default function SettingsPage() {
                         <div className="space-y-0.5">
                             <p className="text-xs font-black uppercase tracking-tight">Auto-Reply to Comments</p>
                             <p className="text-[10px] text-default-500">AI generates contextual replies to people who comment on your posts</p>
+                            {!canAutoReply && (
+                                <p className="text-[10px] text-warning font-bold flex items-center gap-1 mt-1">
+                                    <Lock size={10} /> Requires Lite plan or higher
+                                </p>
+                            )}
                         </div>
                         <Switch
-                            isSelected={autoReplyEnabled}
-                            onChange={setAutoReplyEnabled}
+                            isSelected={canAutoReply ? autoReplyEnabled : false}
+                            onChange={canAutoReply ? setAutoReplyEnabled : undefined}
+                            isDisabled={!canAutoReply}
                         />
                     </div>
 
@@ -419,15 +432,21 @@ export default function SettingsPage() {
                         <div className="space-y-0.5">
                             <p className="text-xs font-black uppercase tracking-tight">Reciprocal Engagement</p>
                             <p className="text-[10px] text-default-500">Visit commenters&apos; profiles and engage with their latest posts</p>
+                            {!canReciprocalEngage && (
+                                <p className="text-[10px] text-warning font-bold flex items-center gap-1 mt-1">
+                                    <Lock size={10} /> Requires Basic plan or higher
+                                </p>
+                            )}
                         </div>
                         <Switch
-                            isSelected={reciprocalEngagementEnabled}
-                            onChange={setReciprocalEngagementEnabled}
+                            isSelected={canReciprocalEngage ? reciprocalEngagementEnabled : false}
+                            onChange={canReciprocalEngage ? setReciprocalEngagementEnabled : undefined}
+                            isDisabled={!canReciprocalEngage}
                         />
                     </div>
 
                     {/* Reply Tone */}
-                    <div className="space-y-2">
+                    <div className={`space-y-2 ${!canAutoReply && !canReciprocalEngage ? "opacity-40 pointer-events-none" : ""}`}>
                         <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Reply Tone</Label>
                         <div className="flex gap-2 flex-wrap">
                             {["friendly", "professional", "witty", "casual"].map((t) => (
@@ -447,7 +466,7 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Config Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${!canReciprocalEngage ? "opacity-40 pointer-events-none" : ""}`}>
                         <TextFieldRoot className="flex flex-col gap-1.5">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-default-400">Max Reciprocal Per Run</Label>
                             <Input

@@ -730,6 +730,15 @@ export const autoReplyToComments = internalAction({
             if (!user.handle || !user.appPassword) continue;
 
             try {
+                const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+                    userId: user._id,
+                    action: "autoReply",
+                });
+                if (!limitCheck.allowed) {
+                    console.log(`Auto-reply skipped for ${user.handle}: ${limitCheck.message}`);
+                    continue;
+                }
+
                 const unreplied = await ctx.runQuery(internal.engagement.getUnrepliedComments, {
                     userId: user._id,
                 });
@@ -876,6 +885,14 @@ export const reciprocalEngagement = internalAction({
             const sinceTimestamp = Date.now() - cooldownMs;
 
             try {
+                const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+                    userId: user._id,
+                    action: "reciprocalEngagement",
+                });
+                if (!limitCheck.allowed) {
+                    console.log(`Reciprocal engagement skipped for ${user.handle}: ${limitCheck.message}`);
+                    continue;
+                }
                 // Get commenters not in cooldown
                 const recentCommenters = await ctx.runQuery(internal.engagement.getRecentCommenters, {
                     userId: user._id,
@@ -1106,6 +1123,12 @@ export const manualLikePerson = action({
         if (!user) throw new Error("User record not found");
         if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
 
+        const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+            userId: user._id,
+            action: "reciprocalEngagement",
+        });
+        if (!limitCheck.allowed) throw new Error(limitCheck.message);
+
         const { eligiblePost, authorInfo } = await findEligiblePost(ctx, user.handle, user.appPassword, args.targetDid);
         if (!eligiblePost) throw new Error("No eligible recent post found for this person");
 
@@ -1142,6 +1165,12 @@ export const manualCommentPerson = action({
         const user = await ctx.runQuery(api.users.getCurrentUser);
         if (!user) throw new Error("User record not found");
         if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+            userId: user._id,
+            action: "reciprocalEngagement",
+        });
+        if (!limitCheck.allowed) throw new Error(limitCheck.message);
 
         const settings = await ctx.runQuery(internal.engagement.getEngagementSettingsInternal, { userId: user._id });
         const { eligiblePost, authorInfo } = await findEligiblePost(ctx, user.handle, user.appPassword, args.targetDid);
@@ -1190,6 +1219,12 @@ export const manualEngageWithPerson = action({
         const user = await ctx.runQuery(api.users.getCurrentUser);
         if (!user) throw new Error("User record not found");
         if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        const limitCheck = await ctx.runQuery(internal.usage.checkLimit, {
+            userId: user._id,
+            action: "reciprocalEngagement",
+        });
+        if (!limitCheck.allowed) throw new Error(limitCheck.message);
 
         const settings = await ctx.runQuery(internal.engagement.getEngagementSettingsInternal, { userId: user._id });
         const { eligiblePost, authorInfo } = await findEligiblePost(ctx, user.handle, user.appPassword, args.targetDid);

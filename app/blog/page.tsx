@@ -1,62 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Calendar, Clock, Sparkles } from "lucide-react";
-
-const blogPosts = [
-    {
-        slug: "introducing-bluesky-ai",
-        title: "Introducing BlueSky AI: Your Bluesky Presence on Autopilot",
-        excerpt: "We're excited to announce the launch of BlueSky AI — a fully automated posting platform for Bluesky that uses AI to generate, schedule, and publish content while you focus on what matters.",
-        date: "Jan 15, 2026",
-        readTime: "5 min read",
-        category: "Announcement",
-        featured: true,
-    },
-    {
-        slug: "crypto-payments-social-media",
-        title: "Why We Chose Crypto Payments for Social Media Automation",
-        excerpt: "Traditional payment processors add friction, fees, and privacy concerns. Here's why we built BlueSky AI with USDC, ETH, and BTC as our primary payment methods — and how it benefits you.",
-        date: "Jan 20, 2026",
-        readTime: "7 min read",
-        category: "Engineering",
-        featured: false,
-    },
-    {
-        slug: "ai-posting-best-practices",
-        title: "AI-Generated Posts That Actually Sound Human: Our Approach",
-        excerpt: "Most AI-generated social content sounds robotic. We spent months refining our prompt engineering, tone calibration, and model selection to create posts that genuinely engage audiences.",
-        date: "Jan 25, 2026",
-        readTime: "8 min read",
-        category: "Tutorial",
-        featured: false,
-    },
-    {
-        slug: "bluesky-at-protocol-deep-dive",
-        title: "Understanding the Bluesky AT Protocol for Developers",
-        excerpt: "The AT Protocol is the backbone of Bluesky's decentralized architecture. Here's how we integrated it into BlueSky AI to enable secure, reliable posting automation.",
-        date: "Feb 1, 2026",
-        readTime: "10 min read",
-        category: "Engineering",
-        featured: false,
-    },
-    {
-        slug: "multi-provider-ai-strategy",
-        title: "Why Multi-Provider AI is the Future of Content Generation",
-        excerpt: "Relying on a single AI provider limits your options. We support OpenRouter, OpenAI, Anthropic, and Google — giving you the flexibility to choose the best model for each task.",
-        date: "Feb 10, 2026",
-        readTime: "6 min read",
-        category: "Product",
-        featured: false,
-    },
-    {
-        slug: "pricing-tiers-explained",
-        title: "BlueSky AI Pricing Tiers Explained: Which Plan is Right for You?",
-        excerpt: "From free Starter to unlimited Enterprise, our 6-tier pricing structure is designed to scale with your needs. Here's a breakdown of what each tier offers and how to choose.",
-        date: "Feb 15, 2026",
-        readTime: "4 min read",
-        category: "Product",
-        featured: false,
-    },
-];
+import { blogPosts } from "@/lib/blog-data";
 
 export default function BlogPage() {
     const featuredPost = blogPosts.find((p) => p.featured);
