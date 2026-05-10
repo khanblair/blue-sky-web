@@ -1048,10 +1048,92 @@ export const reciprocalEngagement = internalAction({
 });
 
 // ---------------------------------------------------------------------------
+// Shared helper for manual engagement actions
+// ---------------------------------------------------------------------------
+
+type FeedPost = {
+    uri: string;
+    cid: string;
+    record: { text?: string; createdAt?: string; reply?: unknown };
+};
+
+async function findEligiblePost(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ctx: any,
+    handle: string,
+    appPassword: string,
+    targetDid: string,
+): Promise<{
+    eligiblePost: FeedPost | null;
+    authorInfo: { handle: string; displayName?: string; avatar?: string };
+}> {
+    const feed = (await ctx.runAction(internal.bluesky.fetchAuthorFeed, {
+        handle,
+        appPassword,
+        authorDid: targetDid,
+        limit: 10,
+    })) as FeedPost[];
+
+    const authorInfo = {
+        handle: feed[0]?.record ? targetDid : "",
+        displayName: undefined as string | undefined,
+        avatar: undefined as string | undefined,
+    };
+
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const eligiblePost = feed.find((post) => {
+        if (post.record.reply) return false;
+        if (post.record.createdAt) {
+            return new Date(post.record.createdAt).getTime() > sevenDaysAgo;
+        }
+        return false;
+    }) ?? null;
+
+    return { eligiblePost, authorInfo };
+}
+
+// ---------------------------------------------------------------------------
 // Manual actions (user-triggered from People page)
 // ---------------------------------------------------------------------------
 
-export const manualEngageWithPerson = action({
+export const manualLikePerson = action({
+    args: { targetDid: v.string() },
+    handler: async (ctx, args): Promise<{ success: boolean }> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.runQuery(api.users.getCurrentUser);
+        if (!user) throw new Error("User record not found");
+        if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        const { eligiblePost, authorInfo } = await findEligiblePost(ctx, user.handle, user.appPassword, args.targetDid);
+        if (!eligiblePost) throw new Error("No eligible recent post found for this person");
+
+        const likeUri = await ctx.runAction(internal.bluesky.likePost, {
+            handle: user.handle,
+            appPassword: user.appPassword,
+            postUri: eligiblePost.uri,
+            postCid: eligiblePost.cid,
+        });
+
+        await ctx.runMutation(internal.engagement.saveEngagementLog, {
+            userId: user._id,
+            targetDid: args.targetDid,
+            targetHandle: authorInfo.handle,
+            targetDisplayName: authorInfo.displayName,
+            targetAvatar: authorInfo.avatar,
+            targetPostUri: eligiblePost.uri,
+            actionType: "reciprocal_like",
+            blueskyUri: likeUri,
+            status: "success",
+        });
+
+        await ctx.runMutation(internal.engagement.incrementReciprocalEngagement, { userId: user._id });
+        return { success: true };
+    },
+});
+
+export const manualCommentPerson = action({
     args: { targetDid: v.string() },
     handler: async (ctx, args): Promise<{ success: boolean; commentUri: string }> => {
         const identity = await ctx.auth.getUserIdentity();
@@ -1061,38 +1143,15 @@ export const manualEngageWithPerson = action({
         if (!user) throw new Error("User record not found");
         if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
 
-        const settings = await ctx.runQuery(internal.engagement.getEngagementSettingsInternal, {
-            userId: user._id,
-        });
-
-        // Fetch the target's feed
-        const feed = await ctx.runAction(internal.bluesky.fetchAuthorFeed, {
-            handle: user.handle,
-            appPassword: user.appPassword,
-            authorDid: args.targetDid,
-            limit: 10,
-        });
-
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const eligiblePost = feed.find((post: {
-            record: { reply?: unknown; createdAt?: string };
-        }) => {
-            if (post.record.reply) return false;
-            if (post.record.createdAt) {
-                return new Date(post.record.createdAt).getTime() > sevenDaysAgo;
-            }
-            return false;
-        });
-
+        const settings = await ctx.runQuery(internal.engagement.getEngagementSettingsInternal, { userId: user._id });
+        const { eligiblePost, authorInfo } = await findEligiblePost(ctx, user.handle, user.appPassword, args.targetDid);
         if (!eligiblePost) throw new Error("No eligible recent post found for this person");
 
         const postContent = eligiblePost.record.text ?? "";
-        const tone = settings?.replyTone ?? "friendly";
-
         const commentContent = await ctx.runAction(internal.aiGeneration.generateReciprocalComment, {
             targetPostContent: postContent,
-            targetAuthorHandle: feed[0]?.author?.handle,
-            tone,
+            targetAuthorHandle: authorInfo.handle,
+            tone: settings?.replyTone ?? "friendly",
             userId: user._id,
         });
 
@@ -1107,9 +1166,9 @@ export const manualEngageWithPerson = action({
         await ctx.runMutation(internal.engagement.saveEngagementLog, {
             userId: user._id,
             targetDid: args.targetDid,
-            targetHandle: feed[0]?.author?.handle,
-            targetDisplayName: feed[0]?.author?.displayName,
-            targetAvatar: feed[0]?.author?.avatar,
+            targetHandle: authorInfo.handle,
+            targetDisplayName: authorInfo.displayName,
+            targetAvatar: authorInfo.avatar,
             targetPostUri: eligiblePost.uri,
             actionType: "reciprocal_comment",
             content: commentContent,
@@ -1117,6 +1176,57 @@ export const manualEngageWithPerson = action({
             status: "success",
         });
 
+        await ctx.runMutation(internal.engagement.incrementReciprocalEngagement, { userId: user._id });
+        return { success: true, commentUri };
+    },
+});
+
+export const manualEngageWithPerson = action({
+    args: { targetDid: v.string() },
+    handler: async (ctx, args): Promise<{ success: boolean; commentUri?: string }> => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Not authenticated");
+
+        const user = await ctx.runQuery(api.users.getCurrentUser);
+        if (!user) throw new Error("User record not found");
+        if (!user.handle || !user.appPassword) throw new Error("Bluesky credentials not configured");
+
+        const settings = await ctx.runQuery(internal.engagement.getEngagementSettingsInternal, { userId: user._id });
+        const { eligiblePost, authorInfo } = await findEligiblePost(ctx, user.handle, user.appPassword, args.targetDid);
+        if (!eligiblePost) throw new Error("No eligible recent post found for this person");
+
+        const postContent = eligiblePost.record.text ?? "";
+
+        // Comment
+        const commentContent = await ctx.runAction(internal.aiGeneration.generateReciprocalComment, {
+            targetPostContent: postContent,
+            targetAuthorHandle: authorInfo.handle,
+            tone: settings?.replyTone ?? "friendly",
+            userId: user._id,
+        });
+
+        const commentUri = await ctx.runAction(internal.bluesky.replyToPost, {
+            handle: user.handle,
+            appPassword: user.appPassword,
+            text: commentContent,
+            replyToUri: eligiblePost.uri,
+            replyToCid: eligiblePost.cid,
+        });
+
+        await ctx.runMutation(internal.engagement.saveEngagementLog, {
+            userId: user._id,
+            targetDid: args.targetDid,
+            targetHandle: authorInfo.handle,
+            targetDisplayName: authorInfo.displayName,
+            targetAvatar: authorInfo.avatar,
+            targetPostUri: eligiblePost.uri,
+            actionType: "reciprocal_comment",
+            content: commentContent,
+            blueskyUri: commentUri,
+            status: "success",
+        });
+
+        // Like
         try {
             const likeUri = await ctx.runAction(internal.bluesky.likePost, {
                 handle: user.handle,
@@ -1128,9 +1238,9 @@ export const manualEngageWithPerson = action({
             await ctx.runMutation(internal.engagement.saveEngagementLog, {
                 userId: user._id,
                 targetDid: args.targetDid,
-                targetHandle: feed[0]?.author?.handle,
-                targetDisplayName: feed[0]?.author?.displayName,
-                targetAvatar: feed[0]?.author?.avatar,
+                targetHandle: authorInfo.handle,
+                targetDisplayName: authorInfo.displayName,
+                targetAvatar: authorInfo.avatar,
                 targetPostUri: eligiblePost.uri,
                 actionType: "reciprocal_like",
                 blueskyUri: likeUri,
@@ -1140,10 +1250,7 @@ export const manualEngageWithPerson = action({
             console.error("Failed to like:", e);
         }
 
-        await ctx.runMutation(internal.engagement.incrementReciprocalEngagement, {
-            userId: user._id,
-        });
-
+        await ctx.runMutation(internal.engagement.incrementReciprocalEngagement, { userId: user._id });
         return { success: true, commentUri };
     },
 });

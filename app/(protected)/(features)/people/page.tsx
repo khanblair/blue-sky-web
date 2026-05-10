@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CardRoot, CardContent, Chip } from "@heroui/react";
@@ -14,6 +14,7 @@ import {
     UserPlus,
     ExternalLink,
     RefreshCw,
+    ChevronDown,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -78,8 +79,22 @@ export default function PeoplePage() {
         selectedPerson ? { targetDid: selectedPerson.did } : "skip"
     );
     const manualEngage = useAction(api.engagement.manualEngageWithPerson);
+    const manualLike = useAction(api.engagement.manualLikePerson);
+    const manualComment = useAction(api.engagement.manualCommentPerson);
 
     const [engaging, setEngaging] = useState<string | null>(null);
+    const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setOpenMenu(null);
+            }
+        }
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, []);
 
     // Filter and search
     const filtered = useMemo(() => {
@@ -318,24 +333,79 @@ export default function PeoplePage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-5">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setEngaging(person.did);
-                                                    manualEngage({ targetDid: person.did })
-                                                        .then(() => setEngaging(null))
-                                                        .catch(() => setEngaging(null));
-                                                }}
-                                                disabled={engaging === person.did}
-                                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-success/10 text-success text-xs font-bold hover:bg-success/20 transition-colors disabled:opacity-50"
-                                            >
-                                                {engaging === person.did ? (
-                                                    <Loader2 size={12} className="animate-spin" />
-                                                ) : (
-                                                    <UserPlus size={12} />
-                                                )}
-                                                Engage
-                                            </button>
+                                            <div className="relative" ref={openMenu === person.did ? menuRef : undefined}>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenu(openMenu === person.did ? null : person.did);
+                                                    }}
+                                                    disabled={engaging === person.did}
+                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-success/10 text-success text-xs font-bold hover:bg-success/20 transition-colors disabled:opacity-50"
+                                                >
+                                                    {engaging === person.did ? (
+                                                        <Loader2 size={12} className="animate-spin" />
+                                                    ) : (
+                                                        <UserPlus size={12} />
+                                                    )}
+                                                    Engage
+                                                    <ChevronDown size={12} />
+                                                </button>
+                                                <AnimatePresence>
+                                                    {openMenu === person.did && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: -4 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -4 }}
+                                                            transition={{ duration: 0.12 }}
+                                                            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl bg-zinc-900 border border-white/10 shadow-xl overflow-hidden"
+                                                        >
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenMenu(null);
+                                                                    setEngaging(person.did);
+                                                                    manualLike({ targetDid: person.did })
+                                                                        .then(() => setEngaging(null))
+                                                                        .catch(() => setEngaging(null));
+                                                                }}
+                                                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                                                            >
+                                                                <Heart size={13} className="text-pink-400" />
+                                                                Like Post
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenMenu(null);
+                                                                    setEngaging(person.did);
+                                                                    manualComment({ targetDid: person.did })
+                                                                        .then(() => setEngaging(null))
+                                                                        .catch(() => setEngaging(null));
+                                                                }}
+                                                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                                                            >
+                                                                <MessageSquare size={13} className="text-blue-400" />
+                                                                Comment
+                                                            </button>
+                                                            <div className="h-px bg-white/5" />
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenMenu(null);
+                                                                    setEngaging(person.did);
+                                                                    manualEngage({ targetDid: person.did })
+                                                                        .then(() => setEngaging(null))
+                                                                        .catch(() => setEngaging(null));
+                                                                }}
+                                                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                                                            >
+                                                                <UserPlus size={13} className="text-success" />
+                                                                Like + Comment
+                                                            </button>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -352,13 +422,17 @@ export default function PeoplePage() {
                         person={selectedPerson}
                         interactions={interactions as InteractionDetail | undefined}
                         engaging={engaging}
+                        onLike={async (did) => {
+                            setEngaging(did);
+                            try { await manualLike({ targetDid: did }); } finally { setEngaging(null); }
+                        }}
+                        onComment={async (did) => {
+                            setEngaging(did);
+                            try { await manualComment({ targetDid: did }); } finally { setEngaging(null); }
+                        }}
                         onEngage={async (did) => {
                             setEngaging(did);
-                            try {
-                                await manualEngage({ targetDid: did });
-                            } finally {
-                                setEngaging(null);
-                            }
+                            try { await manualEngage({ targetDid: did }); } finally { setEngaging(null); }
                         }}
                         onClose={() => setSelectedPerson(null)}
                     />
@@ -375,15 +449,31 @@ function PersonDetailModal({
     person,
     interactions,
     engaging,
+    onLike,
+    onComment,
     onEngage,
     onClose,
 }: {
     person: Interactor;
     interactions: InteractionDetail | undefined;
     engaging: string | null;
+    onLike: (did: string) => Promise<void>;
+    onComment: (did: string) => Promise<void>;
     onEngage: (did: string) => Promise<void>;
     onClose: () => void;
 }) {
+    const [modalMenuOpen, setModalMenuOpen] = useState(false);
+    const modalMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (modalMenuRef.current && !modalMenuRef.current.contains(e.target as Node)) {
+                setModalMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, []);
     return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
             <motion.div
@@ -533,18 +623,55 @@ function PersonDetailModal({
 
                 {/* Footer */}
                 <div className="p-7 pt-5 border-t border-white/5 bg-white/[0.02] flex gap-3">
-                    <button
-                        onClick={() => onEngage(person.did)}
-                        disabled={engaging === person.did}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                        {engaging === person.did ? (
-                            <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                            <UserPlus size={14} />
-                        )}
-                        Engage with this person
-                    </button>
+                    <div className="relative flex-1" ref={modalMenuRef}>
+                        <button
+                            onClick={() => setModalMenuOpen(!modalMenuOpen)}
+                            disabled={engaging === person.did}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                            {engaging === person.did ? (
+                                <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                                <UserPlus size={14} />
+                            )}
+                            Engage
+                            <ChevronDown size={14} />
+                        </button>
+                        <AnimatePresence>
+                            {modalMenuOpen && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -4 }}
+                                    transition={{ duration: 0.12 }}
+                                    className="absolute left-0 bottom-full mb-2 z-50 w-full rounded-xl bg-zinc-900 border border-white/10 shadow-xl overflow-hidden"
+                                >
+                                    <button
+                                        onClick={() => { setModalMenuOpen(false); onLike(person.did); }}
+                                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                                    >
+                                        <Heart size={13} className="text-pink-400" />
+                                        Like their latest post
+                                    </button>
+                                    <button
+                                        onClick={() => { setModalMenuOpen(false); onComment(person.did); }}
+                                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                                    >
+                                        <MessageSquare size={13} className="text-blue-400" />
+                                        Comment on their post
+                                    </button>
+                                    <div className="h-px bg-white/5" />
+                                    <button
+                                        onClick={() => { setModalMenuOpen(false); onEngage(person.did); }}
+                                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                                    >
+                                        <UserPlus size={13} className="text-success" />
+                                        Like + Comment
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                     <button
                         onClick={onClose}
                         className="px-4 py-3 rounded-xl bg-white/5 text-zinc-400 text-sm font-bold hover:text-white hover:bg-white/10 transition-colors"
