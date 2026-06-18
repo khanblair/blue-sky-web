@@ -8,6 +8,12 @@
  * @module
  */
 
+import type * as admin__guard from "../admin/_guard.js";
+import type * as admin_bootstrap from "../admin/bootstrap.js";
+import type * as admin_cronLogs from "../admin/cronLogs.js";
+import type * as admin_metrics from "../admin/metrics.js";
+import type * as admin_subscriptions from "../admin/subscriptions.js";
+import type * as admin_users from "../admin/users.js";
 import type * as aiGeneration from "../aiGeneration.js";
 import type * as bluesky from "../bluesky.js";
 import type * as crons from "../crons.js";
@@ -29,6 +35,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/_guard": typeof admin__guard;
+  "admin/bootstrap": typeof admin_bootstrap;
+  "admin/cronLogs": typeof admin_cronLogs;
+  "admin/metrics": typeof admin_metrics;
+  "admin/subscriptions": typeof admin_subscriptions;
+  "admin/users": typeof admin_users;
   aiGeneration: typeof aiGeneration;
   bluesky: typeof bluesky;
   crons: typeof crons;

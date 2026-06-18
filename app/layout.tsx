@@ -2,12 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientProviders } from "./client-providers";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
-import { FloatingPostButton } from "@/components/FloatingPostButton";
+import { AppShell } from "@/components/AppShell";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
-import { InstallPWAPopup } from "@/components/ServiceWorkerRegistration";
-import { ScrollToTop } from "@/components/ScrollToTop";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,17 +55,7 @@ export default function RootLayout({
       >
         <ServiceWorkerRegistration />
         <ClientProviders>
-          <div className="relative min-h-screen flex flex-col">
-<Navbar />
-            <main className="flex-grow">
-                {children}
-            </main>
-            <Footer />
-            <FloatingPostButton />
-            <ScrollToTop />
-            <InstallPWAPopup />
-          </div>
-          {/* MobileNav removed — navigation is handled by the hamburger menu in Navbar */}
+          <AppShell>{children}</AppShell>
         </ClientProviders>
       </body>
     </html>

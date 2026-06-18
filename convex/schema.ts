@@ -10,6 +10,7 @@ export default defineSchema({
         bskyDisplayName: v.optional(v.string()),
         bskyAvatar: v.optional(v.string()),
         bskyDescription: v.optional(v.string()),
+        role: v.optional(v.union(v.literal("user"), v.literal("admin"))),
     }).index("by_clerkId", ["clerkId"]),
 
     preferences: defineTable({
