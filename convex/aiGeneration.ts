@@ -41,9 +41,12 @@ export const PROVIDER_REGISTRY: Record<string, {
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-            max_tokens: options?.maxTokens ?? 512,
+max_tokens: options?.maxTokens ?? 150,
         }),
-        responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
+        responseParse: (data: unknown) => {
+            const d = data as { choices?: Array<{ message?: { content?: string } }> };
+            return d.choices?.[0]?.message?.content?.trim() ?? "";
+        },
     },
     openai: {
         name: "OpenAI",
@@ -62,7 +65,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-            max_tokens: options?.maxTokens ?? 512,
+            max_tokens: options?.maxTokens ?? 150,
         }),
         responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
@@ -80,10 +83,13 @@ export const PROVIDER_REGISTRY: Record<string, {
         }),
         bodyTransform: (model, messages, options) => ({
             model,
-            max_tokens: options?.maxTokens ?? 512,
+max_tokens: options?.maxTokens ?? 150,
             messages,
         }),
-        responseParse: (data) => (data as { content?: Array<{ text?: string }> }).content?.[0]?.text?.trim() ?? "",
+        responseParse: (data: unknown) => {
+            const d = data as { content?: Array<{ text?: string }> };
+            return d.content?.[0]?.text?.trim() ?? "";
+        },
     },
     google: {
         name: "Google AI",
@@ -101,7 +107,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-            max_tokens: options?.maxTokens ?? 512,
+            max_tokens: options?.maxTokens ?? 150,
         }),
         responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
@@ -119,7 +125,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-            max_tokens: options?.maxTokens ?? 512,
+            max_tokens: options?.maxTokens ?? 150,
         }),
         responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
@@ -189,24 +195,25 @@ Your goal is to write a high-engagement post about: ${args.topics.join(", ")}.
 ${args.subtopics && args.subtopics.length > 0 ? `Focus specifically on these sub-niches: ${args.subtopics.join(", ")}.` : ""}
 ${args.goal ? `The primary strategic objective is to ${args.goal} the audience.` : ""}
 
-## CONSTRAINTS
-- Total character count MUST be at least 300 characters and at most 300 characters. Aim for exactly 300 characters. This is critical — Bluesky displays posts poorly if they are too short, and cuts them off if they are too long. Hit ~300 characters precisely.
+## STRICT CONSTRAINTS
+- Your output MUST be between 200 and 280 characters. This is a hard requirement. Bluesky rejects posts over 300 graphemes, so stay well under 300. Count every character including spaces, line breaks, and punctuation. If your draft exceeds 280 characters, cut it down. If it's under 200, add substance.
 - Use a ${args.tone} tone.
 - ${tagsInstruction}
+- NO introductory phrases like "Here's a post:" or "Post:". Return ONLY the post text.
 
 ## STRUCTURE REQUIREMENTS
 1. THE HOOK: Start with a strong, scroll-stopping first line. Could be a bold claim, a relatable observation, or a surprising fact.
 2. WHITE SPACE: Use double line breaks between the hook and the body to ensure high readability on mobile.
-3. THE BODY: 2-4 sentences that provide real value, insight, or personality. Elaborate enough to reach the 300-character minimum.
+3. THE BODY: 2-3 short, punchy sentences that provide real value or personality.
 4. ENGAGEMENT LOOP: End with a curiosity-gap question or a call to interaction that feels natural, not forced.
 
 ## TONE GUIDANCE
-- Avoid "corporate speak" or generic AI-sounding enthusiastic adjectives (e.g., "Transformative", "Exciting").
+- Avoid "corporate speak" or generic AI-sounding enthusiastic adjectives (e.g., "Transformative", "Exciting", "Revolutionary").
 - Be human, opinionated, and authentic. 
 - If the tone is 'Professional', be an insightful expert, not a LinkedIn bot.
 - If the tone is 'Witty' or 'Casual', use conversational language and subtle humor.
 
-Return ONLY the post content.`;
+Remember: 200-280 characters ONLY. Return ONLY the post content.`;
 
         const headers: Record<string, string> = {
             ...providerConfig.authHeader(apiKey),

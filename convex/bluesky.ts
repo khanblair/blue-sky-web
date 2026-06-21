@@ -2,6 +2,45 @@ import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
+const BLUESKY_MAX_GRAPHEMES = 300;
+
+function truncateToGraphemes(text: string, maxGraphemes: number): string {
+    try {
+        const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+        let result = "";
+        let count = 0;
+        for (const { segment } of segmenter.segment(text)) {
+            if (count + 1 > maxGraphemes) break;
+            result += segment;
+            count++;
+        }
+        return result;
+    } catch {
+        return [...text].slice(0, maxGraphemes).join("");
+    }
+}
+
+function sanitizePostText(text: string): string {
+    let sanitized = text.trim();
+
+    sanitized = sanitized.replace(/\n{3,}/g, "\n\n");
+
+    sanitized = truncateToGraphemes(sanitized, BLUESKY_MAX_GRAPHEMES);
+
+    if (sanitized.length > 0) {
+        const lastPunct = Math.max(
+            sanitized.lastIndexOf("."),
+            sanitized.lastIndexOf("!"),
+            sanitized.lastIndexOf("?"),
+        );
+        if (lastPunct > 0 && lastPunct < sanitized.length - 1) {
+            sanitized = sanitized.slice(0, lastPunct + 1);
+        }
+    }
+
+    return sanitized.trim();
+}
+
 interface BlueskyAuthResponse {
     accessJwt: string;
     did: string;
@@ -121,6 +160,12 @@ export const postToBluesky = internalAction({
         text: v.string(),
     },
     handler: async (ctx, args): Promise<string> => {
+        const safeText = sanitizePostText(args.text);
+
+        if (!safeText) {
+            throw new Error("Post text is empty after sanitization");
+        }
+
         try {
             // 1. Authenticate
             const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
@@ -152,7 +197,7 @@ export const postToBluesky = internalAction({
                     collection: "app.bsky.feed.post",
                     record: {
                         $type: "app.bsky.feed.post",
-                        text: args.text,
+                        text: safeText,
                         createdAt: new Date().toISOString(),
                     },
                 }),
@@ -440,6 +485,12 @@ export const replyToPost = internalAction({
         rootCid: v.optional(v.string()),
     },
     handler: async (_ctx, args): Promise<string> => {
+        const safeText = sanitizePostText(args.text);
+
+        if (!safeText) {
+            throw new Error("Reply text is empty after sanitization");
+        }
+
         try {
             const authResponse = await fetch("https://bsky.social/xrpc/com.atproto.server.createSession", {
                 method: "POST",
@@ -462,7 +513,7 @@ export const replyToPost = internalAction({
                     collection: "app.bsky.feed.post",
                     record: {
                         $type: "app.bsky.feed.post",
-                        text: args.text,
+                        text: safeText,
                         reply: {
                             root: { uri: args.rootUri ?? args.replyToUri, cid: args.rootCid ?? args.replyToCid },
                             parent: { uri: args.replyToUri, cid: args.replyToCid },
