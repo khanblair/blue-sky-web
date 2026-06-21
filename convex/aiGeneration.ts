@@ -3,6 +3,48 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
+const BLUESKY_MAX_GRAPHEMES = 300;
+
+function countGraphemes(text: string): number {
+    try {
+        const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+        let count = 0;
+        for (const _ of segmenter.segment(text)) {
+            count++;
+        }
+        return count;
+    } catch {
+        return [...text].length;
+    }
+}
+
+function truncateToGraphemes(text: string, maxGraphemes: number): string {
+    try {
+        const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+        let result = "";
+        let count = 0;
+        for (const { segment } of segmenter.segment(text)) {
+            if (count + 1 > maxGraphemes) break;
+            result += segment;
+            count++;
+        }
+        // Try to cut at last sentence boundary for a clean ending
+        if (result.length > 0) {
+            const lastPunct = Math.max(
+                result.lastIndexOf("."),
+                result.lastIndexOf("!"),
+                result.lastIndexOf("?"),
+            );
+            if (lastPunct > 0 && lastPunct < result.length - 1) {
+                result = result.slice(0, lastPunct + 1);
+            }
+        }
+        return result.trim();
+    } catch {
+        return [...text].slice(0, maxGraphemes).join("");
+    }
+}
+
 interface Message {
     role: "user" | "assistant" | "system";
     content: string;
@@ -41,7 +83,7 @@ export const PROVIDER_REGISTRY: Record<string, {
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-max_tokens: options?.maxTokens ?? 150,
+max_tokens: options?.maxTokens ?? 512,
         }),
         responseParse: (data: unknown) => {
             const d = data as { choices?: Array<{ message?: { content?: string } }> };
@@ -65,7 +107,7 @@ max_tokens: options?.maxTokens ?? 150,
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-            max_tokens: options?.maxTokens ?? 150,
+            max_tokens: options?.maxTokens ?? 512,
         }),
         responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
@@ -83,7 +125,7 @@ max_tokens: options?.maxTokens ?? 150,
         }),
         bodyTransform: (model, messages, options) => ({
             model,
-max_tokens: options?.maxTokens ?? 150,
+max_tokens: options?.maxTokens ?? 512,
             messages,
         }),
         responseParse: (data: unknown) => {
@@ -107,7 +149,7 @@ max_tokens: options?.maxTokens ?? 150,
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-            max_tokens: options?.maxTokens ?? 150,
+            max_tokens: options?.maxTokens ?? 512,
         }),
         responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
@@ -125,7 +167,7 @@ max_tokens: options?.maxTokens ?? 150,
             model,
             messages,
             temperature: options?.temperature ?? 0.85,
-            max_tokens: options?.maxTokens ?? 150,
+            max_tokens: options?.maxTokens ?? 512,
         }),
         responseParse: (data) => (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() ?? "",
     },
@@ -246,10 +288,62 @@ Remember: 200-280 characters ONLY. Return ONLY the post content.`;
         }
 
         const data = await response.json();
-        const content = providerConfig.responseParse(data);
+        let content = providerConfig.responseParse(data);
 
         if (!content) {
             throw new Error(`No content returned from ${providerConfig.name} (${model})`);
+        }
+
+        // Guard: check grapheme count. If over 300, make a corrective trim call.
+        content = content.trim();
+        const graphemeCount = countGraphemes(content);
+
+        if (graphemeCount > 300) {
+            console.warn(`[AI Guard] Generated post has ${graphemeCount} graphemes (over 300). Requesting trim from ${providerConfig.name}.`);
+
+            const trimPrompt = `The following Bluesky post is ${graphemeCount} characters long, but Bluesky has a strict 300 character limit. Rewrite it to be under 280 characters while keeping the same hook, message, and tone. Remove filler words, condense sentences, but keep the core insight and engagement hook. Do NOT add any meta-commentary like "Here's a shorter version:". Return ONLY the trimmed post.
+
+Original post:
+"""
+${content}
+"""`;
+
+            const trimBody = providerConfig.bodyTransform(
+                model,
+                [{ role: "user", content: trimPrompt }],
+                { temperature: 0.3, maxTokens: 200 }
+            );
+
+            try {
+                const trimResponse = await fetch(providerConfig.baseUrl, {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify(trimBody),
+                });
+
+                if (trimResponse.ok) {
+                    const trimData = await trimResponse.json();
+                    const trimmed = providerConfig.responseParse(trimData).trim();
+                    if (trimmed && countGraphemes(trimmed) <= 300) {
+                        console.log(`[AI Guard] Trimmed post from ${graphemeCount} to ${countGraphemes(trimmed)} graphemes.`);
+                        content = trimmed;
+                    } else if (trimmed) {
+                        // AI trim still too long — hard truncate
+                        console.warn(`[AI Guard] AI trim returned ${countGraphemes(trimmed)} graphemes. Falling back to hard truncation.`);
+                        content = truncateToGraphemes(content, 295);
+                    }
+                } else {
+                    // Trim call failed — hard truncate
+                    console.warn(`[AI Guard] Trim API call failed. Falling back to hard truncation.`);
+                    content = truncateToGraphemes(content, 295);
+                }
+            } catch (e) {
+                console.warn(`[AI Guard] Trim call errored: ${e}. Falling back to hard truncation.`);
+                content = truncateToGraphemes(content, 295);
+            }
+        } else if (graphemeCount < 100) {
+            // Post is suspiciously short — likely a bad generation
+            console.warn(`[AI Guard] Generated post is only ${graphemeCount} graphemes. This may be incomplete.`);
         }
 
         return content;
