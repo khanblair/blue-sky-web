@@ -40,4 +40,13 @@ crons.hourly(
     internal.engagement.reciprocalEngagement,
 );
 
+// Retry failed posts that exceeded the character limit.
+// Finds char-limit failures from the past week, rephrases with AI,
+// and creates new pending posts ready to publish.
+crons.hourly(
+    "retry-failed-posts",
+    { minuteUTC: 45 },
+    internal.posting.retryFailedPosts,
+);
+
 export default crons;

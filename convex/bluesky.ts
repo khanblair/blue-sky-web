@@ -4,41 +4,59 @@ import { api } from "./_generated/api";
 
 const BLUESKY_MAX_GRAPHEMES = 300;
 
+function countGraphemes(text: string): number {
+    try {
+        const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+        let count = 0;
+        for (const _ of segmenter.segment(text)) {
+            count++;
+        }
+        return count;
+    } catch {
+        return [...text].length;
+    }
+}
+
 function truncateToGraphemes(text: string, maxGraphemes: number): string {
     try {
         const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
-        let result = "";
-        let count = 0;
-        for (const { segment } of segmenter.segment(text)) {
-            if (count + 1 > maxGraphemes) break;
-            result += segment;
-            count++;
+        const segments = [...segmenter.segment(text)];
+        if (segments.length <= maxGraphemes) return text;
+
+        let result = segments.slice(0, maxGraphemes).map((s) => s.segment).join("");
+
+        const lastPunct = Math.max(
+            result.lastIndexOf("."),
+            result.lastIndexOf("!"),
+            result.lastIndexOf("?"),
+        );
+        if (lastPunct > 0) {
+            result = result.slice(0, lastPunct + 1);
         }
-        return result;
+
+        return result.trim();
     } catch {
-        return [...text].slice(0, maxGraphemes).join("");
+        const chars = [...text];
+        if (chars.length <= maxGraphemes) return text;
+        return chars.slice(0, maxGraphemes).join("").trim();
     }
 }
 
 function sanitizePostText(text: string): string {
-    let sanitized = text.trim();
+    const trimmed = text.trim();
+    if (!trimmed) return "";
 
-    sanitized = sanitized.replace(/\n{3,}/g, "\n\n");
+    const collapsed = trimmed.replace(/\n{3,}/g, "\n\n");
 
-    sanitized = truncateToGraphemes(sanitized, BLUESKY_MAX_GRAPHEMES);
+    const graphemeCount = countGraphemes(collapsed);
 
-    if (sanitized.length > 0) {
-        const lastPunct = Math.max(
-            sanitized.lastIndexOf("."),
-            sanitized.lastIndexOf("!"),
-            sanitized.lastIndexOf("?"),
-        );
-        if (lastPunct > 0 && lastPunct < sanitized.length - 1) {
-            sanitized = sanitized.slice(0, lastPunct + 1);
-        }
+    if (graphemeCount <= BLUESKY_MAX_GRAPHEMES) {
+        return collapsed;
     }
 
-    return sanitized.trim();
+    const truncated = truncateToGraphemes(collapsed, BLUESKY_MAX_GRAPHEMES);
+
+    return truncated || collapsed.slice(0, 295);
 }
 
 interface BlueskyAuthResponse {
@@ -163,7 +181,7 @@ export const postToBluesky = internalAction({
         const safeText = sanitizePostText(args.text);
 
         if (!safeText) {
-            throw new Error("Post text is empty after sanitization");
+            throw new Error(`Post text is empty. Original length: ${args.text.length}, trimmed: "${args.text.trim().slice(0, 50)}"`);
         }
 
         try {
@@ -488,7 +506,7 @@ export const replyToPost = internalAction({
         const safeText = sanitizePostText(args.text);
 
         if (!safeText) {
-            throw new Error("Reply text is empty after sanitization");
+            throw new Error(`Reply text is empty. Original length: ${args.text.length}`);
         }
 
         try {

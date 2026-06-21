@@ -42,6 +42,7 @@ export default defineSchema({
         content: v.string(),
         generatedAt: v.number(),
         status: v.string(), // "pending" | "posted" | "failed"
+        rephrasedFrom: v.optional(v.id("postHistory")), // set when this post was rephrased from a failed post
     }).index("by_userId", ["userId"])
         .index("by_status", ["status"]),
 

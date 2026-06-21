@@ -799,3 +799,124 @@ export const saveComment = internalMutation({
         });
     },
 });
+
+// ---------------------------------------------------------------------------
+// Retry Agent: Finds failed posts due to character limits,
+// rephrases them with AI, and creates new pending posts
+// ---------------------------------------------------------------------------
+
+const CHAR_LIMIT_PATTERNS = [
+    /grapheme/i,
+    /too big/i,
+    /too long/i,
+    /character/i,
+    /300/i,
+    /character count/i,
+    /length/i,
+];
+
+function isCharLimitError(error: string): boolean {
+    return CHAR_LIMIT_PATTERNS.some((p) => p.test(error));
+}
+
+export const retryFailedPosts = internalAction({
+    handler: async (ctx) => {
+        const now = Date.now();
+        const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+        const failedPosts = await ctx.runQuery(internal.posting.getFailedPostsOlderThan, {
+            afterTimestamp: oneWeekAgo,
+        });
+
+        if (!failedPosts || failedPosts.length === 0) return;
+
+        const retried = new Set<string>();
+
+        for (const post of failedPosts) {
+            if (retried.has(post.userId)) continue;
+            if (!post.error || !isCharLimitError(post.error)) continue;
+
+            const preferences = await ctx.runQuery(internal.users.getPreferencesByUserId, {
+                userId: post.userId,
+            });
+            if (!preferences) continue;
+
+            const existingPending = await ctx.runQuery(internal.posting.hasRecentPendingPost, {
+                userId: post.userId,
+            });
+            if (existingPending) continue;
+
+            try {
+                const rephrased = await ctx.runAction(internal.aiGeneration.generatePost, {
+                    topics: preferences.topics,
+                    subtopics: preferences.subtopics,
+                    tags: preferences.tags,
+                    tone: preferences.tone || "casual",
+                    goal: preferences.goal,
+                    userId: post.userId,
+                });
+
+                if (!rephrased || rephrased.trim().length === 0) continue;
+
+                await ctx.runMutation(internal.posting.createPendingPostInternal, {
+                    userId: post.userId,
+                    content: rephrased.trim(),
+                    rephrasedFrom: post._id,
+                });
+
+                retried.add(post.userId);
+            } catch (err) {
+                console.error(`[RetryAgent] Failed to rephrase post ${post._id}:`, err);
+            }
+        }
+    },
+});
+
+export const getFailedPostsOlderThan = internalQuery({
+    args: { afterTimestamp: v.number() },
+    handler: async (ctx, args) => {
+        const allFailed = await ctx.db
+            .query("postHistory")
+            .withIndex("by_userId")
+            .order("desc")
+            .collect();
+
+        return allFailed.filter(
+            (p) =>
+                p.status === "failed" &&
+                p.timestamp > args.afterTimestamp &&
+                p.error &&
+                isCharLimitError(p.error),
+        );
+    },
+});
+
+export const hasRecentPendingPost = internalQuery({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        const pending = await ctx.db
+            .query("pendingPosts")
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .filter((q) => q.eq(q.field("status"), "pending"))
+            .first();
+
+        return !!pending;
+    },
+});
+
+export const createPendingPostInternal = internalMutation({
+    args: {
+        userId: v.id("users"),
+        content: v.string(),
+        rephrasedFrom: v.optional(v.id("postHistory")),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.insert("pendingPosts", {
+            userId: args.userId,
+            content: args.content,
+            generatedAt: Date.now(),
+            status: "pending",
+            rephrasedFrom: args.rephrasedFrom,
+        });
+    },
+});
